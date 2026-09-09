@@ -16,7 +16,11 @@ enum class EffectType(val displayName: String, val category: String) {
     BEZIER_MASK("Vector Pen Mask (Feathered)", "Matte & Mask"),
     AUDIO_REACTIVE_PULSE("Audio Pulse & Beat Physics", "Physics & Dynamics"),
     CAMERA_3D_PERSPECTIVE("3D Camera Depth & DoF", "3D"),
-    TIME_REMAP("Time Remapping & Speed Ramp", "Time")
+    TIME_REMAP("Time Remapping & Speed Ramp", "Time"),
+    OPTICAL_FLOW_SLOWMO("Optical Flow Slow-Mo (AI Warp)", "Time"),
+    INVERSE_KINEMATICS("2-Bone Character IK Rig", "Physics & Dynamics"),
+    FBM_TURBULENCE("Fractal Simplex Noise & Liquid", "Distortion"),
+    MSDF_BEVEL_3D("Vector 3D Bevel & Emboss", "Stylize")
 }
 
 data class EffectParameter(

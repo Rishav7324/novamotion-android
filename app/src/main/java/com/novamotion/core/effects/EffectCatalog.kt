@@ -128,6 +128,41 @@ object EffectCatalog {
                 "speed" to EffectParameter("speed", "Speed Multiplier", 1.0f, 0.1f, 10.0f),
                 "frameBlend" to EffectParameter("frameBlend", "Frame Blending (1=On)", 1.0f, 0f, 1f)
             )
+        ),
+        EffectDefinition(
+            type = EffectType.OPTICAL_FLOW_SLOWMO,
+            description = "GPU Lucas-Kanade optical flow vector estimation and bidirectional frame synthesis for 120fps/240fps slow-motion",
+            defaultParameters = mapOf(
+                "speedRatio" to EffectParameter("speedRatio", "Slow-Mo Speed", 0.25f, 0.05f, 1.0f),
+                "smoothness" to EffectParameter("smoothness", "Motion Smoothness", 0.8f, 0.1f, 1.0f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.INVERSE_KINEMATICS,
+            description = "Analytical 2-bone inverse kinematics character rigging with pole vector knee/elbow constraint",
+            defaultParameters = mapOf(
+                "length1" to EffectParameter("length1", "Upper Bone Length", 150f, 20f, 600f),
+                "length2" to EffectParameter("length2", "Lower Bone Length", 150f, 20f, 600f),
+                "flipBend" to EffectParameter("flipBend", "Flip Bend Direction (1=On)", 0f, 0f, 1f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.FBM_TURBULENCE,
+            description = "Procedural multi-octave Fractal Brownian Motion and Simplex noise for fluid smoke, electricity, and nebulae",
+            defaultParameters = mapOf(
+                "scale" to EffectParameter("scale", "Noise Scale", 4.0f, 0.5f, 20.0f),
+                "roughness" to EffectParameter("roughness", "Roughness", 0.5f, 0.1f, 0.9f),
+                "speed" to EffectParameter("speed", "Drift Speed", 1.0f, 0.1f, 5.0f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.MSDF_BEVEL_3D,
+            description = "Vector Multi-channel Signed Distance Field with pseudo-3D bevel lighting, stroke outline, and glow",
+            defaultParameters = mapOf(
+                "bevelStrength" to EffectParameter("bevelStrength", "3D Bevel Depth", 0.5f, 0.0f, 1.0f),
+                "strokeWidth" to EffectParameter("strokeWidth", "Stroke Width", 0.05f, 0.0f, 0.3f),
+                "lightAngle" to EffectParameter("lightAngle", "Light Direction Angle", 45f, 0f, 360f)
+            )
         )
     )
 
