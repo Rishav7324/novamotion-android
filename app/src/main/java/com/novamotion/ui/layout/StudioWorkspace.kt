@@ -198,6 +198,11 @@ fun StudioWorkspace(
                         Icon(Icons.Default.Redo, contentDescription = "Redo", tint = if (ProjectManager.canRedo()) TextPrimary else TextMuted)
                     }
 
+                    // Add Layer (+)
+                    IconButton(onClick = { showAddLayerSheet = true }) {
+                        Icon(Icons.Default.AddCircleOutline, contentDescription = "Add Layer", tint = NeonCyan)
+                    }
+
                     // Export Button
                     Button(
                         onClick = { showExportDialog = true },
@@ -321,20 +326,14 @@ fun StudioWorkspace(
                         ProjectManager.updateActiveProject(updatedProj)
                     }
                 },
-                onDuplicateClip = {
-                    val layer = selectedLayer ?: return@QuickActionDock
-                    val duplicate = layer.copy(
-                        id = java.util.UUID.randomUUID().toString(),
-                        name = "${layer.name} Copy",
-                        startTimeMs = layer.startTimeMs + 200L
-                    )
-                    val updatedProj = project.copy(layers = project.layers + duplicate)
-                    project = updatedProj
-                    selectedLayerId = duplicate.id
-                    ProjectManager.updateActiveProject(updatedProj)
+                onUndo = {
+                    ProjectManager.undo()?.let { project = it }
+                },
+                onRedo = {
+                    ProjectManager.redo()?.let { project = it }
                 },
                 onToggleCurveGraph = { showCurveGraph = !showCurveGraph },
-                onAddLayerClick = { showAddLayerSheet = true }
+                onOpenEffects = { showEffectsSheet = true }
             )
 
             // ZONE 3: Magnetic Multi-Track Timeline & Context Inspector (Bottom ~54%)
@@ -346,8 +345,8 @@ fun StudioWorkspace(
                 if (showCurveGraph) {
                     // Split Bezier Curve Graph Editor
                     BezierGraphEditor(
-                        controlPoints = selectedLayer?.transform?.posX?.keyframes?.firstOrNull()?.curve ?: BezierControlPoints(),
-                        onPointsChange = { newCurve ->
+                        curve = selectedLayer?.transform?.posX?.keyframes?.firstOrNull()?.curve ?: BezierControlPoints(),
+                        onCurveChanged = { newCurve ->
                             val layer = selectedLayer ?: return@BezierGraphEditor
                             val updatedKeyframes = layer.transform.posX.keyframes.map {
                                 if (it.timeMs == currentPlayheadMs) it.copy(curve = newCurve) else it
@@ -376,22 +375,6 @@ fun StudioWorkspace(
                                 audioEngine.seekTo(ms)
                             },
                             onSelectLayer = { id -> selectedLayerId = id },
-                            onLayerMove = { id, newStartMs ->
-                                val updatedLayers = project.layers.map {
-                                    if (it.id == id) it.copy(startTimeMs = newStartMs) else it
-                                }
-                                val updatedProj = project.copy(layers = updatedLayers)
-                                project = updatedProj
-                                ProjectManager.updateActiveProject(updatedProj)
-                            },
-                            onLayerTrim = { id, newStartMs, newDurationMs ->
-                                val updatedLayers = project.layers.map {
-                                    if (it.id == id) it.copy(startTimeMs = newStartMs, durationMs = newDurationMs) else it
-                                }
-                                val updatedProj = project.copy(layers = updatedLayers)
-                                project = updatedProj
-                                ProjectManager.updateActiveProject(updatedProj)
-                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(0.55f)
