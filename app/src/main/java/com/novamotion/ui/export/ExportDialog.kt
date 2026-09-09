@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,15 +18,16 @@ import com.novamotion.ui.theme.*
 
 @Composable
 fun ExportDialog(
+    isExporting: Boolean,
+    progress: Float,
+    exportResultPath: String?,
     onDismiss: () -> Unit,
-    onStartExport: (resolution: String, fps: Int, bitrateMbps: Int) -> Unit
+    onStartExport: (width: Int, height: Int, fps: Int, bitrateMbps: Int) -> Unit
 ) {
     var selectedRes by remember { mutableStateOf("1080p (FHD)") }
     var selectedFps by remember { mutableStateOf(60) }
-    var isExporting by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0.45f) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = { if (!isExporting) onDismiss() }) {
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = StudioSurface),
@@ -45,88 +48,133 @@ fun ExportDialog(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = "Ultra-Fast GPU Blit to H.264/HEVC",
+                    text = "Frame-by-Frame GPU Render to MP4",
                     color = TextMuted,
                     fontSize = 12.sp
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Resolution Selector
-                Text(text = "Resolution", color = TextSecondary, fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    listOf("1080p (FHD)", "2K", "4K Ultra").forEach { res ->
-                        val isSelected = res == selectedRes
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(
-                                    if (isSelected) ElectricIndigo else StudioSurfaceVariant,
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .clickable { selectedRes = res }
-                                .padding(vertical = 10.dp)
+                if (exportResultPath != null) {
+                    // Export Success State
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Success",
+                            tint = NeonCyan,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Export Completed!",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = exportResultPath,
+                            color = TextMuted,
+                            fontSize = 11.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text(text = res, color = TextPrimary, fontSize = 12.sp)
+                            Text(text = "Done")
                         }
                     }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Frame Rate Selector
-                Text(text = "Frame Rate", color = TextSecondary, fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    listOf(30, 60, 120).forEach { fps ->
-                        val isSelected = fps == selectedFps
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(
-                                    if (isSelected) NeonCyan.copy(alpha = 0.3f) else StudioSurfaceVariant,
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .border(
-                                    width = if (isSelected) 1.dp else 0.dp,
-                                    color = if (isSelected) NeonCyan else StudioBorder,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .clickable { selectedFps = fps }
-                                .padding(vertical = 10.dp)
-                        ) {
-                            Text(text = "$fps FPS", color = TextPrimary, fontSize = 12.sp)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                if (isExporting) {
-                    Column {
+                } else if (isExporting) {
+                    // Export In-Progress State
+                    Column(modifier = Modifier.padding(vertical = 10.dp)) {
                         LinearProgressIndicator(
                             progress = { progress },
                             color = NeonCyan,
                             trackColor = StudioSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().height(8.dp)
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Rendering frames: ${(progress * 100).toInt()}%",
-                            color = TextSecondary,
-                            fontSize = 12.sp
-                        )
+                        ) {
+                            Text(
+                                text = "Encoding MP4 Video...",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = "${(progress * 100).toInt()}%",
+                                color = NeonCyan,
+                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                     }
                 } else {
+                    // Export Configuration State
+                    Text(text = "Resolution", color = TextSecondary, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf("720p (HD)", "1080p (FHD)", "4K UHD").forEach { res ->
+                            val isSelected = res == selectedRes
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(
+                                        if (isSelected) ElectricIndigo else StudioSurfaceVariant,
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { selectedRes = res }
+                                    .padding(vertical = 10.dp)
+                            ) {
+                                Text(text = res, color = TextPrimary, fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(text = "Frame Rate", color = TextSecondary, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf(24, 30, 60).forEach { fps ->
+                            val isSelected = fps == selectedFps
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(
+                                        if (isSelected) NeonCyan.copy(alpha = 0.3f) else StudioSurfaceVariant,
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .border(
+                                        width = if (isSelected) 1.dp else 0.dp,
+                                        color = if (isSelected) NeonCyan else StudioBorder,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { selectedFps = fps }
+                                    .padding(vertical = 10.dp)
+                            ) {
+                                Text(text = "$fps FPS", color = TextPrimary, fontSize = 12.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
                     Row(
                         horizontalArrangement = Arrangement.End,
                         modifier = Modifier.fillMaxWidth()
@@ -137,12 +185,17 @@ fun ExportDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
-                                isExporting = true
-                                onStartExport(selectedRes, selectedFps, 25)
+                                val (w, h) = when (selectedRes) {
+                                    "720p (HD)" -> Pair(720, 1280)
+                                    "4K UHD" -> Pair(2160, 3840)
+                                    else -> Pair(1080, 1920)
+                                }
+                                onStartExport(w, h, selectedFps, 25)
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo)
+                            colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text(text = "Start Export")
+                            Text(text = "Start Render")
                         }
                     }
                 }

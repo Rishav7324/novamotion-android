@@ -16,12 +16,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.novamotion.core.model.Project
+import com.novamotion.core.model.evaluate
 import com.novamotion.core.render.GLViewportRenderer
 import com.novamotion.ui.theme.*
 
@@ -34,6 +35,13 @@ fun CanvasViewport(
     modifier: Modifier = Modifier
 ) {
     var renderer by remember { mutableStateOf<GLViewportRenderer?>(null) }
+    val selectedLayer = project.layers.find { it.id == selectedLayerId }
+
+    // Evaluated transform values for visual bounding box gizmo
+    val layerX = selectedLayer?.transform?.posX?.evaluate(currentPlayheadMs) ?: 0f
+    val layerY = selectedLayer?.transform?.posY?.evaluate(currentPlayheadMs) ?: 0f
+    val layerScaleX = selectedLayer?.transform?.scaleX?.evaluate(currentPlayheadMs) ?: 1f
+    val layerRot = selectedLayer?.transform?.rotation?.evaluate(currentPlayheadMs) ?: 0f
 
     Box(
         modifier = modifier
@@ -46,7 +54,7 @@ fun CanvasViewport(
             factory = { context ->
                 android.opengl.GLSurfaceView(context).apply {
                     setEGLContextClientVersion(3)
-                    val r = GLViewportRenderer().apply {
+                    val r = GLViewportRenderer(context).apply {
                         this.currentProject = project
                         this.currentPlayheadMs = currentPlayheadMs
                     }
@@ -108,22 +116,31 @@ fun CanvasViewport(
             }
         }
 
-        // Touch Transform Gizmo Layer
-        if (selectedLayerId != null) {
+        // Interactive Touch Transform Gizmo Layer
+        if (selectedLayerId != null && selectedLayer != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(selectedLayerId) {
                         detectTransformGestures { _, pan, zoom, rotation ->
-                            onTransformChange(selectedLayerId, pan.x, pan.y, zoom, rotation)
+                            // Scale pan delta based on density ratio
+                            onTransformChange(selectedLayerId, pan.x * 2.2f, pan.y * 2.2f, zoom, rotation)
                         }
                     }
             ) {
-                // Interactive Bounding Box visual indicator
+                // Interactive Bounding Box positioned & scaled dynamically
+                val boxWidth = (140f * layerScaleX).coerceIn(40f, 400f).dp
+                val boxHeight = (140f * layerScaleX).coerceIn(40f, 400f).dp
+
                 Box(
                     modifier = Modifier
-                        .size(160.dp)
+                        .size(boxWidth, boxHeight)
                         .align(Alignment.Center)
+                        .graphicsLayer {
+                            translationX = layerX * 0.4f
+                            translationY = layerY * 0.4f
+                            rotationZ = layerRot
+                        }
                         .border(1.5.dp, ElectricIndigo, RoundedCornerShape(4.dp))
                 ) {
                     // Corner scale handles

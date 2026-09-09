@@ -1,5 +1,8 @@
 package com.novamotion.ui.media
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,8 +25,33 @@ import com.novamotion.ui.theme.*
 @Composable
 fun AddAssetBottomSheet(
     onDismiss: () -> Unit,
-    onSelectOption: (LayerType) -> Unit
+    onSelectLayerType: (LayerType) -> Unit,
+    onMediaSelected: (Uri, LayerType) -> Unit
 ) {
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            onMediaSelected(uri, LayerType.VIDEO)
+        }
+    }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            onMediaSelected(uri, LayerType.IMAGE)
+        }
+    }
+
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            onMediaSelected(uri, LayerType.AUDIO)
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = StudioSurface,
@@ -46,53 +74,50 @@ fun AddAssetBottomSheet(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 AssetOptionRow(
                     icon = Icons.Default.VideoLibrary,
-                    title = "Media (Video / Image)",
-                    subtitle = "Import clips from device storage",
+                    title = "Device Video",
+                    subtitle = "Pick MP4/MKV video clip from gallery",
                     iconColor = PurpleVideo,
-                    onClick = { onSelectOption(LayerType.VIDEO) }
+                    onClick = {
+                        videoPickerLauncher.launch("video/*")
+                    }
+                )
+
+                AssetOptionRow(
+                    icon = Icons.Default.PhotoLibrary,
+                    title = "Device Photo",
+                    subtitle = "Pick PNG/JPEG image from gallery",
+                    iconColor = NeonCyan,
+                    onClick = {
+                        imagePickerLauncher.launch("image/*")
+                    }
+                )
+
+                AssetOptionRow(
+                    icon = Icons.Default.Audiotrack,
+                    title = "Audio / Music",
+                    subtitle = "Pick MP3/WAV soundtrack from device",
+                    iconColor = GreenAudio,
+                    onClick = {
+                        audioPickerLauncher.launch("audio/*")
+                    }
                 )
 
                 AssetOptionRow(
                     icon = Icons.Default.TextFields,
                     title = "Kinetic Text",
-                    subtitle = "Animated typography with custom fonts",
+                    subtitle = "Animated typography with custom fonts & colors",
                     iconColor = AmberText,
-                    onClick = { onSelectOption(LayerType.TEXT) }
+                    onClick = { onSelectLayerType(LayerType.TEXT) }
                 )
 
                 AssetOptionRow(
                     icon = Icons.Default.Category,
                     title = "Vector Shape",
-                    subtitle = "Parametric shapes, masks, and paths",
-                    iconColor = NeonCyan,
-                    onClick = { onSelectOption(LayerType.SHAPE) }
-                )
-
-                AssetOptionRow(
-                    icon = Icons.Default.MusicNote,
-                    title = "Audio / Sound FX",
-                    subtitle = "Music track with waveform peaks",
-                    iconColor = EmeraldAudio,
-                    onClick = { onSelectOption(LayerType.AUDIO) }
-                )
-
-                AssetOptionRow(
-                    icon = Icons.Default.AutoFixHigh,
-                    title = "Adjustment Layer",
-                    subtitle = "Apply global color grade and VFX to all layers below",
-                    iconColor = OrangeAdjustment,
-                    onClick = { onSelectOption(LayerType.ADJUSTMENT) }
-                )
-
-                AssetOptionRow(
-                    icon = Icons.Default.CenterFocusStrong,
-                    title = "Null Controller",
-                    subtitle = "Parent multiple layers to a single controller",
-                    iconColor = TextSecondary,
-                    onClick = { onSelectOption(LayerType.NULL_OBJECT) }
+                    subtitle = "Parametric Stars, Polygons, Rectangles & Circles",
+                    iconColor = CyanShape,
+                    onClick = { onSelectLayerType(LayerType.SHAPE) }
                 )
             }
-
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -110,9 +135,9 @@ private fun AssetOptionRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .background(StudioSurfaceVariant, RoundedCornerShape(10.dp))
             .border(1.dp, StudioBorder, RoundedCornerShape(10.dp))
-            .clickable { onClick() }
             .padding(12.dp)
     ) {
         Box(
@@ -124,11 +149,13 @@ private fun AssetOptionRow(
             Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
-        Column {
-            Text(text = title, color = TextPrimary, fontSize = 14.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, color = TextPrimary, fontSize = 13.sp, style = MaterialTheme.typography.titleSmall)
             Text(text = subtitle, color = TextMuted, fontSize = 11.sp)
         }
+
+        Icon(Icons.Default.Add, contentDescription = null, tint = TextMuted, modifier = Modifier.size(18.dp))
     }
 }

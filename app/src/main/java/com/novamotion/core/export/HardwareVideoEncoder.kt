@@ -1,10 +1,13 @@
 package com.novamotion.core.export
 
+import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import com.novamotion.core.model.Project
+import com.novamotion.core.render.EglSurfaceRenderer
+import com.novamotion.core.render.SceneRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -21,15 +24,19 @@ data class ExportConfiguration(
 object HardwareVideoEncoder {
 
     /**
-     * Encodes a project into an MP4 video file using Android MediaCodec hardware encoder.
+     * Encodes a project into an MP4 video file using Android MediaCodec hardware encoder
+     * and real EGL OpenGL ES 3.0 frame rendering.
      */
     suspend fun encodeProject(
+        context: Context,
         project: Project,
         config: ExportConfiguration,
         onProgress: (progress: Float) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
         var codec: MediaCodec? = null
         var muxer: MediaMuxer? = null
+        var eglRenderer: EglSurfaceRenderer? = null
+        var sceneRenderer: SceneRenderer? = null
 
         try {
             val format = MediaFormat.createVideoFormat(config.mimeType, config.width, config.height).apply {
@@ -45,6 +52,16 @@ object HardwareVideoEncoder {
             val inputSurface = codec.createInputSurface()
             codec.start()
 
+            // Bind EGL 1.4 context to encoder input surface
+            eglRenderer = EglSurfaceRenderer(inputSurface)
+            eglRenderer.makeCurrent()
+
+            // Initialize OpenGL Scene Renderer for offline export
+            sceneRenderer = SceneRenderer(context).apply {
+                initialize()
+                updateDimensions(config.width, config.height)
+            }
+
             muxer = MediaMuxer(config.outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
             var videoTrackIndex = -1
             var isMuxerStarted = false
@@ -57,6 +74,12 @@ object HardwareVideoEncoder {
             for (frame in 0 until totalFrames) {
                 val presentationTimeNs = frame * frameDurationNs
                 val playheadMs = (frame * 1000L) / config.fps
+
+                // 1. Render project frame directly into encoder EGL Surface
+                eglRenderer.makeCurrent()
+                sceneRenderer.renderProject(project, playheadMs, config.width, config.height)
+                eglRenderer.setPresentationTime(presentationTimeNs)
+                eglRenderer.swapBuffers()
 
                 // Signal end of stream on the final frame
                 if (frame == totalFrames - 1) {
@@ -99,13 +122,13 @@ object HardwareVideoEncoder {
             return@withContext Result.failure(e)
         } finally {
             try {
+                sceneRenderer?.release()
+                eglRenderer?.release()
                 codec?.stop()
                 codec?.release()
                 muxer?.stop()
                 muxer?.release()
-            } catch (e: Exception) {
-                // Ignore cleanup errors
-            }
+            } catch (ignored: Exception) {}
         }
     }
 }

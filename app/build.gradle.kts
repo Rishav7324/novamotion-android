@@ -72,6 +72,7 @@ dependencies {
 
     // Coroutines & Media
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.media3.exoplayer)
 
     testImplementation(libs.junit)
     debugImplementation(libs.androidx.compose.ui.tooling)
