@@ -28,12 +28,13 @@ class EglSurfaceRenderer(private val surface: Surface) {
             throw RuntimeException("unable to initialize EGL14")
         }
 
+        // EGL_OPENGL_ES3_BIT_KHR = 0x40 — must match the ES3 context we create below
         val attribList = intArrayOf(
             EGL14.EGL_RED_SIZE, 8,
             EGL14.EGL_GREEN_SIZE, 8,
             EGL14.EGL_BLUE_SIZE, 8,
             EGL14.EGL_ALPHA_SIZE, 8,
-            EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+            EGL14.EGL_RENDERABLE_TYPE, 0x40, // EGL_OPENGL_ES3_BIT_KHR
             EGL14.EGL_NONE
         )
 

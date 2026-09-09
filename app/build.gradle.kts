@@ -12,8 +12,8 @@ android {
         applicationId = "com.novamotion.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0-ultra"
+        versionCode = 3
+        versionName = "2.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -23,16 +23,21 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 full-mode shrinking + obfuscation for production APK
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // NOTE: For a real release, replace with a production signing config.
+            // Using debug keystore for CI pipeline; swap before Play Store submission.
             signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            isMinifyEnabled = false
         }
     }
 
@@ -53,6 +58,10 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        // 16 KB page size compatibility (Android 15+)
+        jniLibs {
+            useLegacyPackaging = false
+        }
     }
 }
 
@@ -62,7 +71,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
 
-    // Compose
+    // Compose BOM + UI
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
@@ -70,10 +79,14 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
 
-    // Coroutines & Media
+    // Coroutines
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.androidx.media3.exoplayer)
 
+    // Media3 — ExoPlayer for hardware-accelerated video decode
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
+
+    // Unit tests
     testImplementation(libs.junit)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

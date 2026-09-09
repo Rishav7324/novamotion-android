@@ -49,7 +49,7 @@ fun CanvasViewport(
             .background(StudioBackground)
             .clipToBounds()
     ) {
-        // OpenGL Surface View
+        // OpenGL ES 3.0 Surface View — RENDERMODE_WHEN_DIRTY saves GPU power at idle
         AndroidView(
             factory = { context ->
                 android.opengl.GLSurfaceView(context).apply {
@@ -60,21 +60,24 @@ fun CanvasViewport(
                     }
                     renderer = r
                     setRenderer(r)
-                    renderMode = android.opengl.GLSurfaceView.RENDERMODE_CONTINUOUSLY
+                    // Only render when requestRender() is called — avoids wasted frames
+                    renderMode = android.opengl.GLSurfaceView.RENDERMODE_WHEN_DIRTY
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                 }
             },
-            update = {
+            update = { view ->
                 renderer?.currentProject = project
                 renderer?.currentPlayheadMs = currentPlayheadMs
+                // Request a new frame whenever project state or playhead changes
+                view.requestRender()
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Viewport Overlay HUD (Safe Guides & Aspect Ratio)
+        // Viewport Overlay HUD (resolution + FPS badge)
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,

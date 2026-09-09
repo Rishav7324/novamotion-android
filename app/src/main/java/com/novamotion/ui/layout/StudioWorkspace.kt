@@ -1,29 +1,32 @@
 package com.novamotion.ui.layout
 
-import android.net.Uri
 import android.os.Environment
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamotion.core.audio.AudioPlaybackEngine
 import com.novamotion.core.effects.EffectCatalog
 import com.novamotion.core.export.ExportConfiguration
 import com.novamotion.core.export.HardwareVideoEncoder
 import com.novamotion.core.model.*
 import com.novamotion.core.project.ProjectManager
+import com.novamotion.core.shape.ShapeType
+import com.novamotion.core.shape.VectorShapeData
+import com.novamotion.core.text.KineticTextStyle
 import com.novamotion.ui.canvas.CanvasViewport
 import com.novamotion.ui.curve.BezierGraphEditor
 import com.novamotion.ui.dock.QuickActionDock
+import com.novamotion.ui.editor.EditorViewModel
+import com.novamotion.ui.editor.EditorViewModelFactory
 import com.novamotion.ui.effects.EffectsBrowserSheet
 import com.novamotion.ui.export.ExportDialog
 import com.novamotion.ui.inspector.PropertyInspector
@@ -32,13 +35,9 @@ import com.novamotion.ui.media.AssetPickerHelper
 import com.novamotion.ui.project.NewProjectDialog
 import com.novamotion.ui.shape.ShapeInspector
 import com.novamotion.ui.templates.TemplateBrowserSheet
-import com.novamotion.core.text.KineticTextStyle
-import com.novamotion.core.shape.VectorShapeData
-import com.novamotion.core.shape.ShapeType
 import com.novamotion.ui.text.TextInspector
 import com.novamotion.ui.timeline.MagneticTimeline
 import com.novamotion.ui.theme.*
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -50,16 +49,22 @@ fun StudioWorkspace(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val activity = context as? androidx.savedstate.SavedStateRegistryOwner
 
-    var project by remember {
-        mutableStateOf(
-            initialProject ?: ProjectManager.createProject(title = "Cyberpunk Motion Intro")
-        )
+    // ─── ViewModel (survives configuration changes) ─────────────────────────
+    val viewModel: EditorViewModel = if (activity != null) {
+        viewModel(factory = EditorViewModelFactory(activity))
+    } else {
+        viewModel()
     }
 
-    // Default sample layers if empty
-    LaunchedEffect(Unit) {
-        if (project.layers.isEmpty()) {
+    // ─── Load initial project into ViewModel once ───────────────────────────
+    LaunchedEffect(initialProject?.id) {
+        val proj = initialProject ?: ProjectManager.createProject(title = "Cyberpunk Motion Intro")
+        viewModel.loadProject(proj)
+
+        // Seed sample layers if empty
+        if (proj.layers.isEmpty()) {
             val sampleLayers = listOf(
                 Layer(
                     name = "NovaMotion Title",
@@ -105,58 +110,52 @@ fun StudioWorkspace(
                     )
                 )
             )
-            val updated = project.copy(layers = sampleLayers)
-            project = updated
-            ProjectManager.updateActiveProject(updated, recordHistory = false)
+            val seeded = proj.copy(layers = sampleLayers)
+            viewModel.updateProject(seeded, recordHistory = false)
         }
     }
 
-    var currentPlayheadMs by remember { mutableLongStateOf(0L) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var selectedLayerId by remember { mutableStateOf<String?>(project.layers.firstOrNull()?.id) }
+    // ─── Collect state from ViewModel ───────────────────────────────────────
+    val project by viewModel.project.collectAsState()
+    val currentPlayheadMs by viewModel.playheadMs.collectAsState()
+    val isPlaying by viewModel.isPlaying.collectAsState()
+    val selectedLayerId by viewModel.selectedLayerId.collectAsState()
+    val showCurveGraph by viewModel.showCurveGraph.collectAsState()
+    val showExportDialog by viewModel.showExportDialog.collectAsState()
+    val showAddLayerSheet by viewModel.showAddLayerSheet.collectAsState()
+    val showEffectsSheet by viewModel.showEffectsSheet.collectAsState()
+    val showTemplatesSheet by viewModel.showTemplatesSheet.collectAsState()
+    val isExporting by viewModel.isExporting.collectAsState()
+    val exportProgress by viewModel.exportProgress.collectAsState()
+    val exportResultPath by viewModel.exportResultPath.collectAsState()
 
-    // Audio Playback Engine
+    var showNewProjectDialog by remember { mutableStateOf(false) }
+
+    val currentProject = project ?: return
+
+    val selectedLayer = currentProject.layers.find { it.id == selectedLayerId }
+    val isOnKeyframe = selectedLayer?.transform?.posX?.keyframes?.any { it.timeMs == currentPlayheadMs } == true
+
+    // ─── Audio synchronisation (real MediaPlayer) ───────────────────────────
     val audioEngine = remember { AudioPlaybackEngine(context) }
-    DisposableEffect(Unit) {
-        onDispose {
-            audioEngine.release()
-        }
-    }
+    DisposableEffect(Unit) { onDispose { audioEngine.release() } }
 
-    // Synchronize audio with playback state
-    LaunchedEffect(isPlaying) {
-        val audioLayer = project.layers.find { it.type == LayerType.AUDIO && it.mediaUri != null }
-        if (audioLayer != null && audioLayer.mediaUri != null) {
+    // Sync audio with playback state — no delay(16) loop here
+    LaunchedEffect(isPlaying, currentPlayheadMs) {
+        val audioLayer = currentProject.layers.find { it.type == LayerType.AUDIO && it.mediaUri != null }
+        if (audioLayer?.mediaUri != null) {
             audioEngine.loadAudio(audioLayer.mediaUri)
         }
-
         if (isPlaying) {
+            // MediaPlayer seekTo happened via viewModel.play() + audio.play()
+            // AudioPlaybackEngine will seek and start on first play call
             audioEngine.play(currentPlayheadMs)
-            while (isPlaying) {
-                delay(16L) // ~60 FPS
-                currentPlayheadMs = (currentPlayheadMs + 16L) % project.durationMs
-            }
         } else {
             audioEngine.pause()
         }
     }
 
-    // Dialog & Sheet states
-    var showCurveGraph by remember { mutableStateOf(false) }
-    var showExportDialog by remember { mutableStateOf(false) }
-    var showNewProjectDialog by remember { mutableStateOf(false) }
-    var showTemplatesSheet by remember { mutableStateOf(false) }
-    var showAddLayerSheet by remember { mutableStateOf(false) }
-    var showEffectsSheet by remember { mutableStateOf(false) }
-
-    // Real Export states
-    var isExporting by remember { mutableStateOf(false) }
-    var exportProgress by remember { mutableFloatStateOf(0f) }
-    var exportResultPath by remember { mutableStateOf<String?>(null) }
-
-    val selectedLayer = project.layers.find { it.id == selectedLayerId }
-    val isOnKeyframe = selectedLayer?.transform?.posX?.keyframes?.any { it.timeMs == currentPlayheadMs } == true
-
+    // ─── UI ─────────────────────────────────────────────────────────────────
     Scaffold(
         topBar = {
             TopAppBar(
@@ -167,9 +166,9 @@ fun StudioWorkspace(
                 },
                 title = {
                     Column {
-                        Text(text = project.title, color = TextPrimary, fontSize = 15.sp, maxLines = 1)
+                        Text(text = currentProject.title, color = TextPrimary, fontSize = 15.sp, maxLines = 1)
                         Text(
-                            text = "${project.width}x${project.height} • ${project.fps} FPS • ${(project.durationMs / 1000)}s",
+                            text = "${currentProject.width}x${currentProject.height} • ${currentProject.fps} FPS • ${currentProject.durationMs / 1000}s",
                             color = TextMuted,
                             fontSize = 11.sp
                         )
@@ -177,35 +176,28 @@ fun StudioWorkspace(
                 },
                 actions = {
                     // Undo
-                    IconButton(
-                        onClick = {
-                            if (ProjectManager.undo()) {
-                                ProjectManager.activeProject.value?.let { project = it }
-                            }
-                        }
-                    ) {
-                        Icon(Icons.Default.Undo, contentDescription = "Undo", tint = if (ProjectManager.canUndo()) TextPrimary else TextMuted)
+                    IconButton(onClick = { viewModel.undo() }) {
+                        Icon(
+                            Icons.Default.Undo,
+                            contentDescription = "Undo",
+                            tint = if (ProjectManager.canUndo()) TextPrimary else TextMuted
+                        )
                     }
-
                     // Redo
-                    IconButton(
-                        onClick = {
-                            if (ProjectManager.redo()) {
-                                ProjectManager.activeProject.value?.let { project = it }
-                            }
-                        }
-                    ) {
-                        Icon(Icons.Default.Redo, contentDescription = "Redo", tint = if (ProjectManager.canRedo()) TextPrimary else TextMuted)
+                    IconButton(onClick = { viewModel.redo() }) {
+                        Icon(
+                            Icons.Default.Redo,
+                            contentDescription = "Redo",
+                            tint = if (ProjectManager.canRedo()) TextPrimary else TextMuted
+                        )
                     }
-
-                    // Add Layer (+)
-                    IconButton(onClick = { showAddLayerSheet = true }) {
+                    // Add Layer
+                    IconButton(onClick = { viewModel.toggleAddLayerSheet(true) }) {
                         Icon(Icons.Default.AddCircleOutline, contentDescription = "Add Layer", tint = NeonCyan)
                     }
-
-                    // Export Button
+                    // Export
                     Button(
-                        onClick = { showExportDialog = true },
+                        onClick = { viewModel.toggleExportDialog(true) },
                         colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -227,11 +219,11 @@ fun StudioWorkspace(
         ) {
             // ZONE 1: Canvas Viewport (Top ~45%) with Interactive Touch Gizmo
             CanvasViewport(
-                project = project,
+                project = currentProject,
                 currentPlayheadMs = currentPlayheadMs,
                 selectedLayerId = selectedLayerId,
                 onTransformChange = { layerId, dx, dy, zoom, dRot ->
-                    val layer = project.layers.find { it.id == layerId } ?: return@CanvasViewport
+                    val layer = currentProject.layers.find { it.id == layerId } ?: return@CanvasViewport
                     val curX = layer.transform.posX.evaluate(currentPlayheadMs)
                     val curY = layer.transform.posY.evaluate(currentPlayheadMs)
                     val curScaleX = layer.transform.scaleX.evaluate(currentPlayheadMs)
@@ -265,31 +257,25 @@ fun StudioWorkspace(
                         scaleY = updateProperty(layer.transform.scaleY, newScaleY),
                         rotation = updateProperty(layer.transform.rotation, newRot)
                     )
-
                     val updatedLayer = layer.copy(transform = updatedTransform)
-                    val updatedProject = project.copy(
-                        layers = project.layers.map { if (it.id == layerId) updatedLayer else it }
+                    val updatedProject = currentProject.copy(
+                        layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
                     )
-                    project = updatedProject
-                    ProjectManager.updateActiveProject(updatedProject, recordHistory = false)
+                    viewModel.updateProject(updatedProject, recordHistory = false)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.46f)
             )
 
-            // ZONE 2: 1-Tap Quick Action Dock (Center ~56dp)
+            // ZONE 2: Quick Action Dock (Center ~56dp)
             QuickActionDock(
                 currentPlayheadMs = currentPlayheadMs,
                 isPlaying = isPlaying,
                 isOnKeyframe = isOnKeyframe,
                 showCurveGraph = showCurveGraph,
-                onTogglePlay = { isPlaying = !isPlaying },
-                onStepFrame = { step ->
-                    val frameTime = 1000L / project.fps
-                    currentPlayheadMs = (currentPlayheadMs + step * frameTime).coerceIn(0L, project.durationMs)
-                    audioEngine.seekTo(currentPlayheadMs)
-                },
+                onTogglePlay = { viewModel.togglePlayback() },
+                onStepFrame = { step -> viewModel.stepFrame(step >= 0) },
                 onToggleKeyframe = {
                     val layer = selectedLayer ?: return@QuickActionDock
                     val existing = layer.transform.posX.keyframes.find { it.timeMs == currentPlayheadMs }
@@ -299,13 +285,14 @@ fun StudioWorkspace(
                         layer.transform.posX.keyframes + Keyframe(timeMs = currentPlayheadMs, value = 0f)
                     }
                     val updatedLayer = layer.copy(
-                        transform = layer.transform.copy(posX = layer.transform.posX.copy(keyframes = updatedKeyframes))
+                        transform = layer.transform.copy(
+                            posX = layer.transform.posX.copy(keyframes = updatedKeyframes)
+                        )
                     )
-                    val updatedProj = project.copy(
-                        layers = project.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
+                    val updatedProj = currentProject.copy(
+                        layers = currentProject.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
                     )
-                    project = updatedProj
-                    ProjectManager.updateActiveProject(updatedProj)
+                    viewModel.updateProject(updatedProj)
                 },
                 onCutClip = {
                     val layer = selectedLayer ?: return@QuickActionDock
@@ -317,37 +304,27 @@ fun StudioWorkspace(
                             startTimeMs = currentPlayheadMs,
                             durationMs = layer.endTimeMs - currentPlayheadMs
                         )
-                        val updatedLayers = project.layers.flatMap {
+                        val updatedLayers = currentProject.layers.flatMap {
                             if (it.id == layer.id) listOf(part1, part2) else listOf(it)
                         }
-                        val updatedProj = project.copy(layers = updatedLayers)
-                        project = updatedProj
-                        selectedLayerId = part2.id
-                        ProjectManager.updateActiveProject(updatedProj)
+                        val updatedProj = currentProject.copy(layers = updatedLayers)
+                        viewModel.updateProject(updatedProj)
+                        viewModel.selectLayer(part2.id)
                     }
                 },
-                onUndo = {
-                    if (ProjectManager.undo()) {
-                        ProjectManager.activeProject.value?.let { project = it }
-                    }
-                },
-                onRedo = {
-                    if (ProjectManager.redo()) {
-                        ProjectManager.activeProject.value?.let { project = it }
-                    }
-                },
-                onToggleCurveGraph = { showCurveGraph = !showCurveGraph },
-                onOpenEffects = { showEffectsSheet = true }
+                onUndo = { viewModel.undo() },
+                onRedo = { viewModel.redo() },
+                onToggleCurveGraph = { viewModel.toggleCurveGraph() },
+                onOpenEffects = { viewModel.toggleEffectsSheet(true) }
             )
 
-            // ZONE 3: Magnetic Multi-Track Timeline & Context Inspector (Bottom ~54%)
+            // ZONE 3: Timeline + Inspector (Bottom ~54%)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.54f)
             ) {
                 if (showCurveGraph) {
-                    // Split Bezier Curve Graph Editor
                     BezierGraphEditor(
                         curve = selectedLayer?.transform?.posX?.keyframes?.firstOrNull()?.curve ?: BezierControlPoints(),
                         onCurveChanged = { newCurve ->
@@ -358,33 +335,30 @@ fun StudioWorkspace(
                             val updatedLayer = layer.copy(
                                 transform = layer.transform.copy(posX = layer.transform.posX.copy(keyframes = updatedKeyframes))
                             )
-                            val updatedProj = project.copy(
-                                layers = project.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
+                            val updatedProj = currentProject.copy(
+                                layers = currentProject.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
                             )
-                            project = updatedProj
-                            ProjectManager.updateActiveProject(updatedProj, recordHistory = false)
+                            viewModel.updateProject(updatedProj, recordHistory = false)
                         },
-                        onClose = { showCurveGraph = false },
+                        onClose = { viewModel.toggleCurveGraph() },
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Multi-Track Magnetic Timeline
                         MagneticTimeline(
-                            project = project,
+                            project = currentProject,
                             currentPlayheadMs = currentPlayheadMs,
                             selectedLayerId = selectedLayerId,
                             onSeek = { ms ->
-                                currentPlayheadMs = ms
+                                viewModel.seekTo(ms)
                                 audioEngine.seekTo(ms)
                             },
-                            onSelectLayer = { id -> selectedLayerId = id },
+                            onSelectLayer = { id -> viewModel.selectLayer(id) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(0.55f)
                         )
 
-                        // Contextual Layer Property & VFX Inspector Drawer
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -403,9 +377,10 @@ fun StudioWorkspace(
                                                 textContent = newStyle.text,
                                                 textColor = newStyle.fillColor
                                             )
-                                            val updatedProj = project.copy(layers = project.layers.map { if (it.id == updated.id) updated else it })
-                                            project = updatedProj
-                                            ProjectManager.updateActiveProject(updatedProj)
+                                            val updatedProj = currentProject.copy(
+                                                layers = currentProject.layers.map { if (it.id == updated.id) updated else it }
+                                            )
+                                            viewModel.updateProject(updatedProj)
                                         },
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -422,9 +397,10 @@ fun StudioWorkspace(
                                                 shapeType = newShape.type.name,
                                                 fillColor = newShape.primaryColor
                                             )
-                                            val updatedProj = project.copy(layers = project.layers.map { if (it.id == updated.id) updated else it })
-                                            project = updatedProj
-                                            ProjectManager.updateActiveProject(updatedProj)
+                                            val updatedProj = currentProject.copy(
+                                                layers = currentProject.layers.map { if (it.id == updated.id) updated else it }
+                                            )
+                                            viewModel.updateProject(updatedProj)
                                         },
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -436,7 +412,10 @@ fun StudioWorkspace(
                                         onValueChange = { prop, newVal ->
                                             val layer = selectedLayer ?: return@PropertyInspector
                                             val updatedTransform = when (prop) {
-                                                "scale" -> layer.transform.copy(scaleX = AnimatableProperty(newVal), scaleY = AnimatableProperty(newVal))
+                                                "scale" -> layer.transform.copy(
+                                                    scaleX = AnimatableProperty(newVal),
+                                                    scaleY = AnimatableProperty(newVal)
+                                                )
                                                 "rotation" -> layer.transform.copy(rotation = AnimatableProperty(newVal))
                                                 "opacity" -> layer.transform.copy(opacity = AnimatableProperty(newVal))
                                                 "jog" -> {
@@ -446,11 +425,12 @@ fun StudioWorkspace(
                                                 else -> layer.transform
                                             }
                                             val updatedLayer = layer.copy(transform = updatedTransform)
-                                            val updatedProj = project.copy(layers = project.layers.map { if (it.id == updatedLayer.id) updatedLayer else it })
-                                            project = updatedProj
-                                            ProjectManager.updateActiveProject(updatedProj, recordHistory = false)
+                                            val updatedProj = currentProject.copy(
+                                                layers = currentProject.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
+                                            )
+                                            viewModel.updateProject(updatedProj, recordHistory = false)
                                         },
-                                        onAddEffectClick = { showEffectsSheet = true },
+                                        onAddEffectClick = { viewModel.toggleEffectsSheet(true) },
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
@@ -461,13 +441,14 @@ fun StudioWorkspace(
             }
         }
 
-        // Dialogs & Sheets
+        // ─── Dialogs & Sheets ────────────────────────────────────────────────
+
         if (showNewProjectDialog) {
             NewProjectDialog(
                 onDismiss = { showNewProjectDialog = false },
                 onCreateProject = { title, preset, fps ->
-                    project = ProjectManager.createProject(title = title, aspectRatio = preset, fps = fps)
-                    selectedLayerId = null
+                    val newProj = ProjectManager.createProject(title = title, aspectRatio = preset, fps = fps)
+                    viewModel.loadProject(newProj)
                     showNewProjectDialog = false
                 }
             )
@@ -475,19 +456,17 @@ fun StudioWorkspace(
 
         if (showTemplatesSheet) {
             TemplateBrowserSheet(
-                onDismiss = { showTemplatesSheet = false },
+                onDismiss = { viewModel.toggleTemplatesSheet(false) },
                 onSelectTemplate = { tpl ->
-                    project = tpl.project
-                    ProjectManager.setActiveProject(tpl.project)
-                    selectedLayerId = tpl.project.layers.firstOrNull()?.id
-                    showTemplatesSheet = false
+                    viewModel.loadProject(tpl.project)
+                    viewModel.toggleTemplatesSheet(false)
                 }
             )
         }
 
         if (showAddLayerSheet) {
             AddAssetBottomSheet(
-                onDismiss = { showAddLayerSheet = false },
+                onDismiss = { viewModel.toggleAddLayerSheet(false) },
                 onSelectLayerType = { layerType ->
                     val newLayer = Layer(
                         name = if (layerType == LayerType.TEXT) "Kinetic Title" else "Vector Shape",
@@ -497,11 +476,8 @@ fun StudioWorkspace(
                         textContent = if (layerType == LayerType.TEXT) "EDIT TEXT" else "",
                         shapeType = if (layerType == LayerType.SHAPE) "STAR" else "RECTANGLE"
                     )
-                    val updatedProj = project.copy(layers = project.layers + newLayer)
-                    project = updatedProj
-                    selectedLayerId = newLayer.id
-                    ProjectManager.updateActiveProject(updatedProj)
-                    showAddLayerSheet = false
+                    viewModel.addLayer(newLayer)
+                    viewModel.toggleAddLayerSheet(false)
                 },
                 onMediaSelected = { uri, layerType ->
                     val newLayer = AssetPickerHelper.createLayerFromMediaUri(
@@ -510,28 +486,24 @@ fun StudioWorkspace(
                         type = layerType,
                         startTimeMs = currentPlayheadMs
                     )
-                    val updatedProj = project.copy(layers = project.layers + newLayer)
-                    project = updatedProj
-                    selectedLayerId = newLayer.id
-                    ProjectManager.updateActiveProject(updatedProj)
-                    showAddLayerSheet = false
+                    viewModel.addLayer(newLayer)
+                    viewModel.toggleAddLayerSheet(false)
                 }
             )
         }
 
         if (showEffectsSheet) {
             EffectsBrowserSheet(
-                onDismiss = { showEffectsSheet = false },
+                onDismiss = { viewModel.toggleEffectsSheet(false) },
                 onSelectEffect = { effectType ->
                     val layer = selectedLayer ?: return@EffectsBrowserSheet
                     val newEffect = EffectCatalog.createEffect(effectType)
                     val updatedLayer = layer.copy(effects = layer.effects + newEffect)
-                    val updatedProj = project.copy(
-                        layers = project.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
+                    val updatedProj = currentProject.copy(
+                        layers = currentProject.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
                     )
-                    project = updatedProj
-                    ProjectManager.updateActiveProject(updatedProj)
-                    showEffectsSheet = false
+                    viewModel.updateProject(updatedProj)
+                    viewModel.toggleEffectsSheet(false)
                 }
             )
         }
@@ -542,16 +514,17 @@ fun StudioWorkspace(
                 progress = exportProgress,
                 exportResultPath = exportResultPath,
                 onDismiss = {
-                    showExportDialog = false
-                    exportResultPath = null
-                    isExporting = false
+                    viewModel.toggleExportDialog(false)
+                    viewModel.setExportResult(null)
+                    viewModel.setExporting(false)
                 },
                 onStartExport = { w, h, fps, bitrate ->
-                    isExporting = true
-                    exportProgress = 0f
-                    exportResultPath = null
+                    viewModel.setExporting(true)
+                    viewModel.setExportProgress(0f)
+                    viewModel.setExportResult(null)
                     scope.launch {
-                        val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
+                        val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+                            ?: context.filesDir
                         val targetFile = File(moviesDir, "NovaMotion_${System.currentTimeMillis()}.mp4")
                         val cfg = ExportConfiguration(
                             width = w,
@@ -562,13 +535,13 @@ fun StudioWorkspace(
                         )
                         val res = HardwareVideoEncoder.encodeProject(
                             context = context,
-                            project = project,
+                            project = currentProject,
                             config = cfg,
-                            onProgress = { p -> exportProgress = p }
+                            onProgress = { p -> viewModel.setExportProgress(p) }
                         )
-                        isExporting = false
+                        viewModel.setExporting(false)
                         if (res.isSuccess) {
-                            exportResultPath = targetFile.absolutePath
+                            viewModel.setExportResult(targetFile.absolutePath)
                         }
                     }
                 }
