@@ -14,7 +14,9 @@ val ElectricIndigoLight = Color(0xFF818CF8)
 val NeonCyan = Color(0xFF06B6D4) // Active Keyframe diamond glow
 val PlayheadRed = Color(0xFFEF4444)
 val EmeraldAudio = Color(0xFF10B981)
+val GreenAudio = EmeraldAudio
 val AmberText = Color(0xFFF59E0B)
+val CyanShape = Color(0xFF06B6D4)
 val PurpleVideo = Color(0xFF8B5CF6)
 val OrangeAdjustment = Color(0xFFF97316)
 

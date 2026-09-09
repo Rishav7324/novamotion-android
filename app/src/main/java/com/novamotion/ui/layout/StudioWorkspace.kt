@@ -32,6 +32,9 @@ import com.novamotion.ui.media.AssetPickerHelper
 import com.novamotion.ui.project.NewProjectDialog
 import com.novamotion.ui.shape.ShapeInspector
 import com.novamotion.ui.templates.TemplateBrowserSheet
+import com.novamotion.core.text.KineticTextStyle
+import com.novamotion.core.shape.VectorShapeData
+import com.novamotion.core.shape.ShapeType
 import com.novamotion.ui.text.TextInspector
 import com.novamotion.ui.timeline.MagneticTimeline
 import com.novamotion.ui.theme.*
@@ -402,40 +405,40 @@ fun StudioWorkspace(
                         ) {
                             when (selectedLayer?.type) {
                                 LayerType.TEXT -> {
+                                    val currentStyle = KineticTextStyle(
+                                        text = selectedLayer.textContent,
+                                        fillColor = selectedLayer.textColor
+                                    )
                                     TextInspector(
-                                        layer = selectedLayer,
-                                        onTextChanged = { txt ->
-                                            val updated = selectedLayer.copy(textContent = txt)
+                                        textStyle = currentStyle,
+                                        onTextStyleChanged = { newStyle ->
+                                            val updated = selectedLayer.copy(
+                                                textContent = newStyle.text,
+                                                textColor = newStyle.fillColor
+                                            )
                                             val updatedProj = project.copy(layers = project.layers.map { if (it.id == updated.id) updated else it })
                                             project = updatedProj
                                             ProjectManager.updateActiveProject(updatedProj)
                                         },
-                                        onColorChanged = { c ->
-                                            val updated = selectedLayer.copy(textColor = c)
-                                            val updatedProj = project.copy(layers = project.layers.map { if (it.id == updated.id) updated else it })
-                                            project = updatedProj
-                                            ProjectManager.updateActiveProject(updatedProj)
-                                        },
-                                        onStyleSelected = { _ -> },
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
                                 LayerType.SHAPE -> {
+                                    val currentShape = VectorShapeData(
+                                        type = try { ShapeType.valueOf(selectedLayer.shapeType) } catch (e: Exception) { ShapeType.RECTANGLE },
+                                        primaryColor = selectedLayer.fillColor
+                                    )
                                     ShapeInspector(
-                                        layer = selectedLayer,
-                                        onShapeTypeChanged = { st ->
-                                            val updated = selectedLayer.copy(shapeType = st)
+                                        shapeData = currentShape,
+                                        onShapeDataChanged = { newShape ->
+                                            val updated = selectedLayer.copy(
+                                                shapeType = newShape.type.name,
+                                                fillColor = newShape.primaryColor
+                                            )
                                             val updatedProj = project.copy(layers = project.layers.map { if (it.id == updated.id) updated else it })
                                             project = updatedProj
                                             ProjectManager.updateActiveProject(updatedProj)
                                         },
-                                        onFillColorChanged = { fc ->
-                                            val updated = selectedLayer.copy(fillColor = fc)
-                                            val updatedProj = project.copy(layers = project.layers.map { if (it.id == updated.id) updated else it })
-                                            project = updatedProj
-                                            ProjectManager.updateActiveProject(updatedProj)
-                                        },
-                                        onPresetSelected = { _ -> },
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
