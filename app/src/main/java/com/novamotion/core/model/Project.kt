@@ -7,6 +7,7 @@ data class Project(
     val height: Int = 1920,
     val fps: Int = 60,
     val durationMs: Long = 10000L, // 10 seconds default
+    val backgroundColor: Long = 0xFF0A0B0EL,
     val layers: List<Layer> = emptyList()
 ) {
     val totalFrames: Long get() = (durationMs * fps) / 1000L

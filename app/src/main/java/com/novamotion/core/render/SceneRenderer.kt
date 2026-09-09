@@ -72,12 +72,12 @@ class SceneRenderer(private val context: Context) {
     }
 
     fun renderProject(project: Project, playheadMs: Long, viewportWidth: Int, viewportHeight: Int) {
-        GLES30.glViewport(0, 0, viewportWidth, height = viewportHeight)
+        GLES30.glViewport(0, 0, viewportWidth, viewportHeight)
 
         // Clear with dark studio background
-        val bgRed = ((project.backgroundColor shr 16) and 0xFF) / 255f
-        val bgGreen = ((project.backgroundColor shr 8) and 0xFF) / 255f
-        val bgBlue = (project.backgroundColor and 0xFF) / 255f
+        val bgRed = (((project.backgroundColor shr 16) and 0xFFL).toFloat()) / 255f
+        val bgGreen = (((project.backgroundColor shr 8) and 0xFFL).toFloat()) / 255f
+        val bgBlue = ((project.backgroundColor and 0xFFL).toFloat()) / 255f
         GLES30.glClearColor(bgRed, bgGreen, bgBlue, 1.0f)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
 
