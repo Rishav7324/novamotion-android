@@ -11,7 +11,12 @@ enum class EffectType(val displayName: String, val category: String) {
     GLITCH("Digital Glitch", "Stylize"),
     MOTION_TILE("Motion Tile / Mirror Edges", "Distortion"),
     DISPLACEMENT_MAP("Displacement Map", "Distortion"),
-    CHROMA_KEY("Chroma Key (Green Screen)", "Matte & Mask")
+    CHROMA_KEY("Chroma Key (Green Screen)", "Matte & Mask"),
+    LUT_3D("3D LUT Cinema Grade (.cube)", "Color"),
+    BEZIER_MASK("Vector Pen Mask (Feathered)", "Matte & Mask"),
+    AUDIO_REACTIVE_PULSE("Audio Pulse & Beat Physics", "Physics & Dynamics"),
+    CAMERA_3D_PERSPECTIVE("3D Camera Depth & DoF", "3D"),
+    TIME_REMAP("Time Remapping & Speed Ramp", "Time")
 }
 
 data class EffectParameter(

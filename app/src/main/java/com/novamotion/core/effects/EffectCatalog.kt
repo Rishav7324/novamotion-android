@@ -84,6 +84,50 @@ object EffectCatalog {
                 "similarity" to EffectParameter("similarity", "Similarity Threshold", 0.4f, 0.1f, 0.8f),
                 "smoothness" to EffectParameter("smoothness", "Edge Smoothness", 0.15f, 0.01f, 0.5f)
             )
+        ),
+        EffectDefinition(
+            type = EffectType.LUT_3D,
+            description = "Professional .cube 3D Look-Up Table cinema grading with trilinear hardware interpolation",
+            defaultParameters = mapOf(
+                "intensity" to EffectParameter("intensity", "Blend Intensity", 1.0f, 0f, 1f),
+                "presetIndex" to EffectParameter("presetIndex", "Preset (0:Teal, 1:Portra, 2:Neon, 3:Noir, 4:Bleach)", 0f, 0f, 4f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.BEZIER_MASK,
+            description = "Multi-point Bezier pen mask outline with edge feathering and inversion",
+            defaultParameters = mapOf(
+                "feather" to EffectParameter("feather", "Edge Feather Radius", 0.15f, 0f, 1f),
+                "invert" to EffectParameter("invert", "Invert Mask (1=On)", 0f, 0f, 1f),
+                "opacity" to EffectParameter("opacity", "Mask Opacity", 1.0f, 0f, 1f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.AUDIO_REACTIVE_PULSE,
+            description = "Drives scale, shake or glow using damped spring physics driven by audio frequency bands",
+            defaultParameters = mapOf(
+                "sensitivity" to EffectParameter("sensitivity", "Sensitivity", 1.5f, 0.1f, 5.0f),
+                "threshold" to EffectParameter("threshold", "Noise Threshold", 0.2f, 0.0f, 0.8f),
+                "maxModulation" to EffectParameter("maxModulation", "Max Modulation", 0.4f, 0.05f, 1.0f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.CAMERA_3D_PERSPECTIVE,
+            description = "3D depth positioning, 3-axis rotation, and cinematic bokeh Depth of Field blur",
+            defaultParameters = mapOf(
+                "posZ" to EffectParameter("posZ", "Depth Z Position", 0f, -2000f, 2000f),
+                "rotX" to EffectParameter("rotX", "Pitch Rotation", 0f, -180f, 180f),
+                "rotY" to EffectParameter("rotY", "Yaw Rotation", 0f, -180f, 180f),
+                "aperture" to EffectParameter("aperture", "Lens Aperture (DoF)", 2.8f, 1.2f, 16.0f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.TIME_REMAP,
+            description = "Non-linear time remapping, velocity speed ramping, and optical slow-motion blending",
+            defaultParameters = mapOf(
+                "speed" to EffectParameter("speed", "Speed Multiplier", 1.0f, 0.1f, 10.0f),
+                "frameBlend" to EffectParameter("frameBlend", "Frame Blending (1=On)", 1.0f, 0f, 1f)
+            )
         )
     )
 

@@ -32,7 +32,9 @@ fun EffectsBrowserSheet(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
 
-    val categories = listOf("All", "Distortion", "Light & Glow", "Blur & Sharpen", "Stylize", "Color")
+    val categories = remember {
+        listOf("All") + EffectCatalog.availableEffects.map { it.type.category }.distinct()
+    }
 
     val filteredEffects = EffectCatalog.availableEffects.filter { eff ->
         val matchesCategory = selectedCategory == "All" || eff.type.category == selectedCategory

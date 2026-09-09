@@ -108,6 +108,64 @@ fun PropertyInspector(
                 Text(text = "Precision", color = TextMuted, fontSize = 10.sp)
             }
         }
+
+        // Active Effects Stack
+        if (selectedLayer.effects.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = StudioBorder, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Applied Effects (${selectedLayer.effects.size})",
+                color = TextSecondary,
+                fontSize = 12.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            selectedLayer.effects.forEach { effect ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = effect.type.displayName,
+                                color = if (effect.isEnabled) NeonCyan else TextMuted,
+                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                text = if (effect.isEnabled) "ON" else "OFF",
+                                color = if (effect.isEnabled) NeonCyan else TextMuted,
+                                fontSize = 10.sp
+                            )
+                        }
+
+                        // Effect parameters
+                        effect.parameters.values.forEach { param ->
+                            Spacer(modifier = Modifier.height(4.dp))
+                            PropertySlider(
+                                name = param.name,
+                                value = param.value,
+                                range = param.min..param.max,
+                                onValueChange = { newVal ->
+                                    onValueChange("${effect.id}_${param.key}", newVal)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
