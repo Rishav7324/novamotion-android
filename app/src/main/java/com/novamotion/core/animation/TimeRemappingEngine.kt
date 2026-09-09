@@ -1,5 +1,6 @@
 package com.novamotion.core.animation
 
+import com.novamotion.core.model.BezierControlPoints
 import kotlin.math.floor
 
 /**
@@ -10,7 +11,7 @@ import kotlin.math.floor
 data class TimeRemapKeyframe(
     val timelineTimeMs: Long,
     val sourceTimeMs: Long,
-    val easingCurve: BezierCurve = BezierCurve(0.33f, 0f, 0.67f, 1f)
+    val easingCurve: BezierControlPoints = BezierControlPoints(0.33f, 0f, 0.67f, 1f)
 )
 
 data class FrameBlendSample(
@@ -48,7 +49,7 @@ class TimeRemappingEngine(
                 if (duration <= 0f) return k0.sourceTimeMs
 
                 val progress = (timelineTimeMs - k0.timelineTimeMs) / duration
-                val curvedProgress = k0.easingCurve.solve(progress)
+                val curvedProgress = BezierCurve.evaluate(progress, k0.easingCurve)
                 val sourceDiff = (k1.sourceTimeMs - k0.sourceTimeMs).toFloat()
 
                 return (k0.sourceTimeMs + sourceDiff * curvedProgress).toLong()
