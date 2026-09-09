@@ -28,6 +28,7 @@ import com.novamotion.ui.project.NewProjectDialog
 import com.novamotion.ui.shape.ShapeInspector
 import com.novamotion.ui.templates.TemplateBrowserSheet
 import com.novamotion.ui.text.TextInspector
+import com.novamotion.ui.timeline.MagneticTimeline
 import com.novamotion.ui.theme.*
 import kotlinx.coroutines.delay
 
