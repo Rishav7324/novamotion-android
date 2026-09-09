@@ -327,10 +327,14 @@ fun StudioWorkspace(
                     }
                 },
                 onUndo = {
-                    ProjectManager.undo()?.let { project = it }
+                    if (ProjectManager.undo()) {
+                        ProjectManager.activeProject.value?.let { project = it }
+                    }
                 },
                 onRedo = {
-                    ProjectManager.redo()?.let { project = it }
+                    if (ProjectManager.redo()) {
+                        ProjectManager.activeProject.value?.let { project = it }
+                    }
                 },
                 onToggleCurveGraph = { showCurveGraph = !showCurveGraph },
                 onOpenEffects = { showEffectsSheet = true }

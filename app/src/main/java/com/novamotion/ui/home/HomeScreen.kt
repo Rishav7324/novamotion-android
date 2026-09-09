@@ -22,8 +22,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamotion.R
-import com.novamotion.core.model.AspectRatioPreset
 import com.novamotion.core.model.Project
+import com.novamotion.core.project.AspectRatioPreset
 import com.novamotion.core.project.ProjectManager
 import com.novamotion.ui.project.NewProjectDialog
 import com.novamotion.ui.theme.*
@@ -40,9 +40,9 @@ fun HomeScreen(
 
     val recentProjects = remember {
         mutableStateListOf(
-            ProjectManager.createProject("Cyberpunk Motion Intro", AspectRatioPreset.NINE_SIXTEEN),
-            ProjectManager.createProject("Velocity Beat Drop", AspectRatioPreset.NINE_SIXTEEN),
-            ProjectManager.createProject("Cinematic YouTube Vlog", AspectRatioPreset.SIXTEEN_NINE)
+            ProjectManager.createProject("Cyberpunk Motion Intro", AspectRatioPreset.REELS_9_16),
+            ProjectManager.createProject("Velocity Beat Drop", AspectRatioPreset.REELS_9_16),
+            ProjectManager.createProject("Cinematic YouTube Vlog", AspectRatioPreset.CINEMA_16_9)
         )
     }
 
@@ -120,11 +120,11 @@ fun HomeScreen(
                     .horizontalScroll(rememberScrollState())
             ) {
                 listOf(
-                    Triple(AspectRatioPreset.NINE_SIXTEEN, "9:16", "Reels/TikTok"),
-                    Triple(AspectRatioPreset.SIXTEEN_NINE, "16:9", "YouTube/Cinema"),
-                    Triple(AspectRatioPreset.ONE_ONE, "1:1", "Square Post"),
-                    Triple(AspectRatioPreset.FOUR_FIVE, "4:5", "Portrait Post"),
-                    Triple(AspectRatioPreset.TWENTY_ONE_NINE, "21:9", "Ultrawide")
+                    Triple(AspectRatioPreset.REELS_9_16, "9:16", "Reels/TikTok"),
+                    Triple(AspectRatioPreset.CINEMA_16_9, "16:9", "YouTube/Cinema"),
+                    Triple(AspectRatioPreset.SQUARE_1_1, "1:1", "Square Post"),
+                    Triple(AspectRatioPreset.FEED_4_5, "4:5", "Portrait Post"),
+                    Triple(AspectRatioPreset.ULTRAWIDE_21_9, "21:9", "Ultrawide")
                 ).forEach { (preset, ratio, label) ->
                     Card(
                         colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
@@ -253,7 +253,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val tplProj = ProjectManager.createProject(title, AspectRatioPreset.NINE_SIXTEEN)
+                                    val tplProj = ProjectManager.createProject(title, AspectRatioPreset.REELS_9_16)
                                     onOpenProject(tplProj)
                                 }
                         ) {
