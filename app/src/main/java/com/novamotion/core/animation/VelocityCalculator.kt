@@ -1,6 +1,7 @@
 package com.novamotion.core.animation
 
 import com.novamotion.core.model.AnimatableProperty
+import com.novamotion.core.model.evaluate
 import kotlin.math.sqrt
 
 data class VelocityVector(val vx: Float, val vy: Float) {
