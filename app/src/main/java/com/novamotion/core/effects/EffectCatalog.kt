@@ -60,6 +60,30 @@ object EffectCatalog {
                 "radius" to EffectParameter("radius", "Radius", 0.75f, 0.3f, 1.0f),
                 "softness" to EffectParameter("softness", "Softness", 0.45f, 0.1f, 0.8f)
             )
+        ),
+        EffectDefinition(
+            type = EffectType.MOTION_TILE,
+            description = "Mirrors repeating edges to eliminate black borders during shakes & zooms",
+            defaultParameters = mapOf(
+                "scale" to EffectParameter("scale", "Scale", 1.0f, 0.2f, 3.0f),
+                "mirror" to EffectParameter("mirror", "Mirror Edges (1=On)", 1.0f, 0f, 1f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.DISPLACEMENT_MAP,
+            description = "Displaces pixels based on secondary map red/green channels",
+            defaultParameters = mapOf(
+                "strengthX" to EffectParameter("strengthX", "Horizontal Strength", 0.05f, 0.001f, 0.2f),
+                "strengthY" to EffectParameter("strengthY", "Vertical Strength", 0.05f, 0.001f, 0.2f)
+            )
+        ),
+        EffectDefinition(
+            type = EffectType.CHROMA_KEY,
+            description = "Green/Blue screen color removal with spill suppression",
+            defaultParameters = mapOf(
+                "similarity" to EffectParameter("similarity", "Similarity Threshold", 0.4f, 0.1f, 0.8f),
+                "smoothness" to EffectParameter("smoothness", "Edge Smoothness", 0.15f, 0.01f, 0.5f)
+            )
         )
     )
 

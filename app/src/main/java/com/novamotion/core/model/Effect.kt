@@ -8,7 +8,10 @@ enum class EffectType(val displayName: String, val category: String) {
     COLOR_GRADING("3D LUT & Grade", "Color"),
     WAVE_WARP("Wave Warp", "Distortion"),
     VIGNETTE("Cinematic Vignette", "Light & Glow"),
-    GLITCH("Digital Glitch", "Stylize")
+    GLITCH("Digital Glitch", "Stylize"),
+    MOTION_TILE("Motion Tile / Mirror Edges", "Distortion"),
+    DISPLACEMENT_MAP("Displacement Map", "Distortion"),
+    CHROMA_KEY("Chroma Key (Green Screen)", "Matte & Mask")
 }
 
 data class EffectParameter(
