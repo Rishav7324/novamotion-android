@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Exported MP4 files from getExternalFilesDir(DIRECTORY_MOVIES) -->
+    <external-files-path name="movies" path="Movies/" />
+    <!-- Internal cache for temp export files -->
+    <cache-path name="cache" path="." />
+    <!-- Internal files dir -->
+    <files-path name="files" path="." />
+</paths>
