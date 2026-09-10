@@ -203,6 +203,25 @@ private fun TimelineLayerTrack(
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.CenterStart
         ) {
+            // Visual audio waveform background for AUDIO tracks
+            if (layer.type == LayerType.AUDIO) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                    val barSpacing = 4.dp.toPx()
+                    val barWidth = 2.dp.toPx()
+                    val numBars = (size.width / barSpacing).toInt()
+                    val midY = size.height / 2f
+                    for (i in 0 until numBars) {
+                        val norm = kotlin.math.sin(i * 0.35f) * 0.5f + kotlin.math.cos(i * 0.18f) * 0.4f
+                        val barHeight = (size.height * 0.7f * kotlin.math.abs(norm)).coerceAtLeast(4f)
+                        drawRect(
+                            color = EmeraldAudio.copy(alpha = 0.45f),
+                            topLeft = androidx.compose.ui.geometry.Offset(i * barSpacing, midY - barHeight / 2f),
+                            size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
+                        )
+                    }
+                }
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,

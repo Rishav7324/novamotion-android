@@ -121,14 +121,16 @@ object HardwareVideoEncoder {
             e.printStackTrace()
             return@withContext Result.failure(e)
         } finally {
+            try { sceneRenderer?.release() } catch (ignored: Exception) {}
+            try { eglRenderer?.release() } catch (ignored: Exception) {}
+            try { codec?.stop() } catch (ignored: Exception) {}
+            try { codec?.release() } catch (ignored: Exception) {}
             try {
-                sceneRenderer?.release()
-                eglRenderer?.release()
-                codec?.stop()
-                codec?.release()
-                muxer?.stop()
-                muxer?.release()
+                if (isMuxerStarted) {
+                    muxer?.stop()
+                }
             } catch (ignored: Exception) {}
+            try { muxer?.release() } catch (ignored: Exception) {}
         }
     }
 }

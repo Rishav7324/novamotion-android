@@ -80,6 +80,26 @@ class AudioPlaybackEngine(private val context: Context) {
         }
     }
 
+    /**
+     * Checks drift against authoritative playhead clock.
+     * If drift exceeds 200ms, resyncs audio to authoritative position.
+     */
+    fun correctDriftIfNeeded(authoritativeMs: Long) {
+        val player = mediaPlayer ?: return
+        if (!isPrepared) return
+        try {
+            if (!player.isPlaying) return
+            val audioMs = player.currentPosition.toLong()
+            val drift = kotlin.math.abs(audioMs - authoritativeMs)
+            if (drift > 200L) {
+                Log.d(TAG, "Audio drift: audio=$audioMs authoritative=$authoritativeMs (drift=${drift}ms) — re-syncing")
+                player.seekTo(authoritativeMs, MediaPlayer.SEEK_CLOSEST)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "correctDriftIfNeeded failed", e)
+        }
+    }
+
     /** Returns current playback position in milliseconds. */
     fun getCurrentPositionMs(): Long {
         return try {

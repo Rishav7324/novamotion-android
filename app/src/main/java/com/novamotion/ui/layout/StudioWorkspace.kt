@@ -141,18 +141,29 @@ fun StudioWorkspace(
     val audioEngine = remember { AudioPlaybackEngine(context) }
     DisposableEffect(Unit) { onDispose { audioEngine.release() } }
 
-    // Sync audio with playback state — no delay(16) loop here
-    LaunchedEffect(isPlaying, currentPlayheadMs) {
-        val audioLayer = currentProject.layers.find { it.type == LayerType.AUDIO && it.mediaUri != null }
-        if (audioLayer?.mediaUri != null) {
-            audioEngine.loadAudio(audioLayer.mediaUri)
+    // Sync audio source loading when audio layers change
+    val audioLayerUri = currentProject.layers.find { it.type == LayerType.AUDIO && it.mediaUri != null }?.mediaUri
+    LaunchedEffect(audioLayerUri) {
+        if (audioLayerUri != null) {
+            audioEngine.loadAudio(audioLayerUri)
+        } else {
+            audioEngine.release()
         }
+    }
+
+    // Trigger play or pause only when playback state toggles
+    LaunchedEffect(isPlaying) {
         if (isPlaying) {
-            // MediaPlayer seekTo happened via viewModel.play() + audio.play()
-            // AudioPlaybackEngine will seek and start on first play call
             audioEngine.play(currentPlayheadMs)
         } else {
             audioEngine.pause()
+        }
+    }
+
+    // Smooth drift correction during playback (only seeks if drift > 200ms)
+    LaunchedEffect(isPlaying, currentPlayheadMs) {
+        if (isPlaying) {
+            audioEngine.correctDriftIfNeeded(currentPlayheadMs)
         }
     }
 

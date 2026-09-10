@@ -4,6 +4,7 @@ import android.content.Context
 import android.opengl.GLES11Ext
 import android.opengl.GLES30
 import android.opengl.Matrix
+import com.novamotion.core.animation.TransformHierarchy
 import com.novamotion.core.model.Layer
 import com.novamotion.core.model.LayerType
 import com.novamotion.core.model.Project
@@ -135,31 +136,22 @@ class SceneRenderer(private val context: Context) {
     }
 
     private fun renderLayer(layer: Layer, playheadMs: Long, project: Project) {
-        // 1. Evaluate keyframed transforms
-        val posX     = layer.transform.posX.evaluate(playheadMs)
-        val posY     = layer.transform.posY.evaluate(playheadMs)
-        val posZ     = layer.transform.posZ.evaluate(playheadMs)
-        val scaleX   = layer.transform.scaleX.evaluate(playheadMs)
-        val scaleY   = layer.transform.scaleY.evaluate(playheadMs)
-        val rotation = layer.transform.rotation.evaluate(playheadMs)
-        val opacity  = layer.transform.opacity.evaluate(playheadMs)
-
+        val opacity = layer.transform.opacity.evaluate(playheadMs)
         if (opacity <= 0.001f) return
 
         when (layer.type) {
-            LayerType.VIDEO -> renderVideoLayer(layer, posX, posY, posZ, scaleX, scaleY, rotation, opacity, project)
-            LayerType.IMAGE -> renderImageLayer(layer, posX, posY, posZ, scaleX, scaleY, rotation, opacity, project)
-            LayerType.TEXT  -> renderTextLayer(layer, posX, posY, posZ, scaleX, scaleY, rotation, opacity, project)
-            LayerType.SHAPE -> renderShapeLayer(layer, posX, posY, posZ, scaleX, scaleY, rotation, opacity, project)
+            LayerType.VIDEO -> renderVideoLayer(layer, playheadMs, opacity, project)
+            LayerType.IMAGE -> renderImageLayer(layer, playheadMs, opacity, project)
+            LayerType.TEXT  -> renderTextLayer(layer, playheadMs, opacity, project)
+            LayerType.SHAPE -> renderShapeLayer(layer, playheadMs, opacity, project)
             else -> return  // AUDIO, ADJUSTMENT, NULL_OBJECT — no visual output
         }
     }
 
     private fun renderVideoLayer(
         layer: Layer,
-        posX: Float, posY: Float, posZ: Float,
-        scaleX: Float, scaleY: Float,
-        rotation: Float, opacity: Float,
+        playheadMs: Long,
+        opacity: Float,
         project: Project
     ) {
         val shader = oesShader ?: return
@@ -173,7 +165,7 @@ class SceneRenderer(private val context: Context) {
         val oesTexId = manager.oesTextureId
         if (oesTexId == 0) return
 
-        computeMvp(posX, posY, posZ, scaleX * 0.9f, scaleY * 0.9f, rotation, project)
+        computeMvp(layer, playheadMs, 0.9f, 0.9f, project)
 
         shader.use()
         val mvpHandle = GLES30.glGetUniformLocation(shader.programId, "u_MVPMatrix")
@@ -196,9 +188,8 @@ class SceneRenderer(private val context: Context) {
 
     private fun renderImageLayer(
         layer: Layer,
-        posX: Float, posY: Float, posZ: Float,
-        scaleX: Float, scaleY: Float,
-        rotation: Float, opacity: Float,
+        playheadMs: Long,
+        opacity: Float,
         project: Project
     ) {
         val shader = baseShader ?: return
@@ -206,16 +197,15 @@ class SceneRenderer(private val context: Context) {
         val texResult = ImageTextureLoader.loadImageTexture(context, uri) ?: return
 
         val ratio = texResult.width.toFloat() / texResult.height.toFloat()
-        computeMvp(posX, posY, posZ, scaleX * ratio * 0.8f, scaleY * 0.8f, rotation, project)
+        computeMvp(layer, playheadMs, ratio * 0.8f, 0.8f, project)
 
         bindAndDraw2DTexture(shader, texResult.textureId, opacity)
     }
 
     private fun renderTextLayer(
         layer: Layer,
-        posX: Float, posY: Float, posZ: Float,
-        scaleX: Float, scaleY: Float,
-        rotation: Float, opacity: Float,
+        playheadMs: Long,
+        opacity: Float,
         project: Project
     ) {
         val shader = baseShader ?: return
@@ -227,16 +217,15 @@ class SceneRenderer(private val context: Context) {
         )
 
         val ratio = texResult.width.toFloat() / texResult.height.toFloat()
-        computeMvp(posX, posY, posZ, scaleX * ratio * 0.4f, scaleY * 0.4f, rotation, project)
+        computeMvp(layer, playheadMs, ratio * 0.4f, 0.4f, project)
 
         bindAndDraw2DTexture(shader, texResult.textureId, opacity)
     }
 
     private fun renderShapeLayer(
         layer: Layer,
-        posX: Float, posY: Float, posZ: Float,
-        scaleX: Float, scaleY: Float,
-        rotation: Float, opacity: Float,
+        playheadMs: Long,
+        opacity: Float,
         project: Project
     ) {
         val shader = baseShader ?: return
@@ -247,22 +236,37 @@ class SceneRenderer(private val context: Context) {
             strokeWidth = 6f
         )
 
-        computeMvp(posX, posY, posZ, scaleX * 0.6f, scaleY * 0.6f, rotation, project)
+        computeMvp(layer, playheadMs, 0.6f, 0.6f, project)
         bindAndDraw2DTexture(shader, texResult.textureId, opacity)
     }
 
     private fun computeMvp(
-        posX: Float, posY: Float, posZ: Float,
-        scaleX: Float, scaleY: Float,
-        rotation: Float,
+        layer: Layer,
+        playheadMs: Long,
+        aspectScaleX: Float,
+        aspectScaleY: Float,
         project: Project
     ) {
-        Matrix.setIdentityM(modelMatrix, 0)
-        val normX = posX / (project.width / 2f)
-        val normY = -(posY / (project.height / 2f))
-        Matrix.translateM(modelMatrix, 0, normX, normY, posZ)
-        Matrix.rotateM(modelMatrix, 0, rotation, 0f, 0f, 1f)
-        Matrix.scaleM(modelMatrix, 0, scaleX, scaleY, 1f)
+        if (layer.parentLayerId != null) {
+            TransformHierarchy.computeWorldMatrix(layer, project, playheadMs, modelMatrix)
+            Matrix.scaleM(modelMatrix, 0, aspectScaleX, aspectScaleY, 1f)
+        } else {
+            val posX     = layer.transform.posX.evaluate(playheadMs)
+            val posY     = layer.transform.posY.evaluate(playheadMs)
+            val posZ     = layer.transform.posZ.evaluate(playheadMs)
+            val scaleX   = layer.transform.scaleX.evaluate(playheadMs)
+            val scaleY   = layer.transform.scaleY.evaluate(playheadMs)
+            val rotation = layer.transform.rotation.evaluate(playheadMs)
+
+            Matrix.setIdentityM(modelMatrix, 0)
+            val normX = posX / (project.width / 2f)
+            val normY = -(posY / (project.height / 2f))
+            Matrix.translateM(modelMatrix, 0, normX, normY, posZ)
+            if (rotation != 0f) {
+                Matrix.rotateM(modelMatrix, 0, rotation, 0f, 0f, 1f)
+            }
+            Matrix.scaleM(modelMatrix, 0, scaleX * aspectScaleX, scaleY * aspectScaleY, 1f)
+        }
 
         Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, modelMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, mvpMatrix, 0)
