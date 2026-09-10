@@ -54,7 +54,7 @@ fun StudioWorkspace(
 
     // ─── ViewModel (survives configuration changes) ─────────────────────────
     val viewModel: EditorViewModel = if (activity != null) {
-        viewModel(factory = EditorViewModelFactory(activity))
+        viewModel(factory = EditorViewModelFactory(activity, context))
     } else {
         viewModel()
     }
@@ -355,6 +355,22 @@ fun StudioWorkspace(
                                 audioEngine.seekTo(ms)
                             },
                             onSelectLayer = { id -> viewModel.selectLayer(id) },
+                            onLayerMoved = { layerId, newStartMs ->
+                                val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
+                                val updatedLayer = layer.copy(startTimeMs = newStartMs)
+                                val updatedProj = currentProject.copy(
+                                    layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
+                                )
+                                viewModel.updateProject(updatedProj)
+                            },
+                            onLayerTrimmed = { layerId, newDurationMs ->
+                                val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
+                                val updatedLayer = layer.copy(durationMs = newDurationMs)
+                                val updatedProj = currentProject.copy(
+                                    layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
+                                )
+                                viewModel.updateProject(updatedProj)
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(0.55f)

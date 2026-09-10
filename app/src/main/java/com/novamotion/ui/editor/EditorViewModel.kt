@@ -1,5 +1,6 @@
 package com.novamotion.ui.editor
 
+import android.content.Context
 import android.view.Choreographer
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -7,10 +8,14 @@ import androidx.lifecycle.viewModelScope
 import com.novamotion.core.model.Layer
 import com.novamotion.core.model.Project
 import com.novamotion.core.project.ProjectManager
+import com.novamotion.core.project.ProjectPersistenceManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
  * Production-grade ViewModel for the Studio editor.
@@ -24,6 +29,23 @@ import kotlinx.coroutines.flow.update
 class EditorViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    /** Application context — set by EditorViewModelFactory after creation. */
+    var appContext: Context? = null
+
+    /** Debounce job for auto-save (cancelled and restarted on every project mutation). */
+    private var autoSaveJob: Job? = null
+
+    /** Schedule an auto-save 1.5s after the last mutation. Cancels any pending save. */
+    private fun scheduleSave(project: Project) {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(1500L)
+            appContext?.let { ctx ->
+                ProjectPersistenceManager.saveProject(ctx, project)
+            }
+        }
+    }
 
     // ─── Project state ─────────────────────────────────────────────────────
 
@@ -111,6 +133,8 @@ class EditorViewModel(
     fun updateProject(updated: Project, recordHistory: Boolean = true) {
         ProjectManager.updateActiveProject(updated, recordHistory)
         _project.value = updated
+        // Schedule debounced auto-save (1.5s after last mutation)
+        scheduleSave(updated)
     }
 
     fun addLayer(layer: Layer) {

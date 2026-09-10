@@ -1,15 +1,17 @@
 package com.novamotion.ui.editor
 
+import android.content.Context
 import androidx.lifecycle.AbstractSavedStateViewModelFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.savedstate.SavedStateRegistryOwner
 
 /**
- * Factory for EditorViewModel so it can receive SavedStateHandle.
+ * Factory for EditorViewModel — injects SavedStateHandle and appContext.
  */
 class EditorViewModelFactory(
-    owner: SavedStateRegistryOwner
+    owner: SavedStateRegistryOwner,
+    private val appContext: Context
 ) : AbstractSavedStateViewModelFactory(owner, null) {
 
     @Suppress("UNCHECKED_CAST")
@@ -18,6 +20,8 @@ class EditorViewModelFactory(
         modelClass: Class<T>,
         handle: SavedStateHandle
     ): T {
-        return EditorViewModel(handle) as T
+        val viewModel = EditorViewModel(handle)
+        viewModel.appContext = appContext.applicationContext
+        return viewModel as T
     }
 }
