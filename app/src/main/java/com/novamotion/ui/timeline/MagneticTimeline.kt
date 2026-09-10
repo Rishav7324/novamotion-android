@@ -136,17 +136,19 @@ fun MagneticTimeline(
         }
 
         // Auto-scroll timeline to keep playhead visible when playing
+        val density = androidx.compose.ui.platform.LocalDensity.current
         LaunchedEffect(currentPlayheadMs) {
             try {
-                val viewportWidthPx = 360.dp.toPx()
+                val viewportWidthPx = with(density) { 360.dp.toPx() }
                 val playheadPx = currentPlayheadMs * pxPerMs
                 val scrollPx = scrollState.value.toFloat()
-                // Estimate viewport as pxPerMs * duration visible; fallback to viewportWidthPx
                 val viewportEst = try { scrollState.maxValue.toFloat().coerceAtLeast(viewportWidthPx) } catch (_: Exception) { viewportWidthPx }
                 val visibleLeft = scrollPx
                 val visibleRight = scrollPx + viewportEst
-                if (playheadPx < visibleLeft + 40.dp.toPx() || playheadPx > visibleRight - 40.dp.toPx()) {
-                    val target = (playheadPx - 120.dp.toPx()).coerceAtLeast(0f).toInt()
+                val margin40 = with(density) { 40.dp.toPx() }
+                val offset120 = with(density) { 120.dp.toPx() }
+                if (playheadPx < visibleLeft + margin40 || playheadPx > visibleRight - margin40) {
+                    val target = (playheadPx - offset120).coerceAtLeast(0f).toInt()
                     scrollState.animateScrollTo(target)
                 }
             } catch (_: Exception) {}
