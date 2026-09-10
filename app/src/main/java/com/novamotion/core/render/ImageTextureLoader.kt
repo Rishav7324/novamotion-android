@@ -47,11 +47,32 @@ object ImageTextureLoader {
             null
         }
 
-        if (bitmap == null) return null
+        if (bitmap == null) {
+            return getOrCreateFallbackTexture()
+        }
 
-        val result = uploadBitmapToGpu(bitmap, recycleAfterUpload = true) ?: return null
+        val result = uploadBitmapToGpu(bitmap, recycleAfterUpload = true) ?: getOrCreateFallbackTexture()
         imageCache[uriString] = result
         return result
+    }
+
+    private var fallbackTexture: TextureResult? = null
+
+    /**
+     * Generates a safe fallback placeholder texture (64x64) if a media file was deleted from disk.
+     */
+    fun getOrCreateFallbackTexture(): TextureResult {
+        fallbackTexture?.let { return it }
+        val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+        val paint = android.graphics.Paint()
+        paint.color = 0xFF2A2A2E.toInt()
+        canvas.drawRect(0f, 0f, 64f, 64f, paint)
+        paint.color = 0xFF6366F1.toInt()
+        canvas.drawRect(8f, 8f, 56f, 56f, paint)
+        val res = uploadBitmapToGpu(bmp, recycleAfterUpload = true) ?: TextureResult(0, 64, 64)
+        fallbackTexture = res
+        return res
     }
 
     /**

@@ -39,8 +39,14 @@ object HardwareVideoEncoder {
         var sceneRenderer: SceneRenderer? = null
         var isMuxerStarted = false
 
+        var tempRenderFile: File? = null
+
         try {
-            val format = MediaFormat.createVideoFormat(config.mimeType, config.width, config.height).apply {
+            // Ensure width and height are divisible by 16 for universal MediaCodec hardware compatibility across all SoCs
+            val alignedWidth = (config.width + 15) / 16 * 16
+            val alignedHeight = (config.height + 15) / 16 * 16
+
+            val format = MediaFormat.createVideoFormat(config.mimeType, alignedWidth, alignedHeight).apply {
                 setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
                 setInteger(MediaFormat.KEY_BIT_RATE, config.bitrateMbps * 1000 * 1000)
                 setInteger(MediaFormat.KEY_FRAME_RATE, config.fps)
@@ -60,10 +66,17 @@ object HardwareVideoEncoder {
             // Initialize OpenGL Scene Renderer for offline export
             sceneRenderer = SceneRenderer(context).apply {
                 initialize()
-                updateDimensions(config.width, config.height)
+                updateDimensions(alignedWidth, alignedHeight)
             }
 
-            muxer = MediaMuxer(config.outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            val hasAudio = AudioExportPipeline.hasAudio(project)
+            tempRenderFile = if (hasAudio) {
+                File(config.outputFile.parentFile ?: context.cacheDir, "temp_render_${System.currentTimeMillis()}.mp4")
+            } else {
+                config.outputFile
+            }
+
+            muxer = MediaMuxer(tempRenderFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
             var videoTrackIndex = -1
             isMuxerStarted = false
 
@@ -78,7 +91,7 @@ object HardwareVideoEncoder {
 
                 // 1. Render project frame directly into encoder EGL Surface
                 eglRenderer.makeCurrent()
-                sceneRenderer.renderProject(project, playheadMs, config.width, config.height)
+                sceneRenderer.renderProject(project, playheadMs, alignedWidth, alignedHeight)
                 eglRenderer.setPresentationTime(presentationTimeNs)
                 eglRenderer.swapBuffers()
 
@@ -117,6 +130,27 @@ object HardwareVideoEncoder {
                 onProgress((frame + 1).toFloat() / totalFrames.toFloat())
             }
 
+            // Flush and stop video muxer before audio multiplexing stage
+            if (isMuxerStarted) {
+                muxer.stop()
+                isMuxerStarted = false
+            }
+            muxer.release()
+            muxer = null
+
+            // Stage 2: Merge audio tracks if present
+            if (hasAudio && tempRenderFile != null) {
+                val mergeResult = AudioExportPipeline.mergeAudioAndVideo(
+                    context = context,
+                    project = project,
+                    tempVideoFile = tempRenderFile,
+                    outputFile = config.outputFile
+                )
+                if (mergeResult.isFailure) {
+                    return@withContext mergeResult
+                }
+            }
+
             return@withContext Result.success(config.outputFile)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -132,6 +166,9 @@ object HardwareVideoEncoder {
                 }
             } catch (ignored: Exception) {}
             try { muxer?.release() } catch (ignored: Exception) {}
+            if (tempRenderFile != null && tempRenderFile != config.outputFile && tempRenderFile.exists()) {
+                try { tempRenderFile.delete() } catch (ignored: Exception) {}
+            }
         }
     }
 }

@@ -2,28 +2,36 @@ package com.novamotion.ui.inspector
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamotion.core.model.Layer
 import com.novamotion.core.model.evaluate
+import com.novamotion.ui.components.GlassmorphicCard
+import com.novamotion.ui.components.iosSpringClick
 import com.novamotion.ui.theme.*
 
 /**
- * Production PropertyInspector.
- *
- * Previous version had hardcoded slider values (value = 1.0f / 0f).
- * This version reads the actual evaluated transform values at currentPlayheadMs
- * and displays them correctly.
+ * Apple iOS Cupertino Pro Property Inspector for NovaMotion.
+ * Features Control Center style thick gradient sliders, monospace numeric boxes,
+ * tactile Jog Wheel nudge, and Liquid Glass frosted cards.
  */
 @Composable
 fun PropertyInspector(
@@ -38,15 +46,19 @@ fun PropertyInspector(
             contentAlignment = Alignment.Center,
             modifier = modifier
                 .fillMaxWidth()
-                .background(StudioSurface)
+                .background(IosSecondaryBackground)
                 .padding(24.dp)
         ) {
-            Text(text = "Select a layer to edit properties", color = TextMuted, fontSize = 13.sp)
+            Text(
+                text = "Select a layer on the timeline to edit properties",
+                color = IosLabelTertiary,
+                fontSize = 13.sp
+            )
         }
         return
     }
 
-    // Evaluate actual transform values at the current playhead position
+    // Evaluated transform values at current playhead
     val scaleX   = selectedLayer.transform.scaleX.evaluate(currentPlayheadMs)
     val rotation = selectedLayer.transform.rotation.evaluate(currentPlayheadMs)
     val opacity  = selectedLayer.transform.opacity.evaluate(currentPlayheadMs)
@@ -56,134 +68,199 @@ fun PropertyInspector(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(StudioSurface)
-            .border(1.dp, StudioBorder)
+            .background(IosSecondaryBackground)
             .padding(12.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        // ── Layer Header ──────────────────────────────────────────────────────
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+        // ── 1. Layer Header Glass Pill ──────────────────────────────────────
+        GlassmorphicCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            backgroundColor = IosGlassSurface,
+            borderBrush = IosGlassBorder,
+            elevation = 4.dp
         ) {
-            Column {
-                Text(
-                    text = selectedLayer.name,
-                    color = TextPrimary,
-                    fontSize = 14.sp
-                )
-                Text(
-                    text = "${selectedLayer.type.label} • ${selectedLayer.durationMs / 1000.0f}s",
-                    color = TextMuted,
-                    fontSize = 10.sp
-                )
-            }
-            Button(
-                onClick = onAddEffectClick,
-                colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(6.dp)
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Add VFX", fontSize = 11.sp)
+                Column {
+                    Text(
+                        text = selectedLayer.name,
+                        color = IosLabelPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "${selectedLayer.type.label} • ${selectedLayer.durationMs / 1000.0f}s",
+                        color = IosLabelSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+
+                // Add VFX Action Pill
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(IosPurple, IosIndigo)
+                            )
+                        )
+                        .border(0.75.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(14.dp))
+                        .iosSpringClick { onAddEffectClick() }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.AutoFixHigh,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = "Add VFX",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        HorizontalDivider(color = StudioBorder.copy(alpha = 0.5f))
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // ── Transform Section ─────────────────────────────────────────────────
-        Text(text = "Transform", color = TextSecondary, fontSize = 11.sp, style = MaterialTheme.typography.labelSmall)
+        // ── 2. Transform Section: Control Center Sliders & Jog Wheel ─────────
+        Text(
+            text = "TRANSFORM CONTROLS",
+            color = IosLabelSecondary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(start = 4.dp)
+        )
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+        GlassmorphicCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            backgroundColor = IosGlassSurface,
+            borderBrush = IosGlassBorder,
+            elevation = 6.dp
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                // Position X
-                PropertySlider(
-                    name = "Pos X",
-                    value = posX,
-                    range = -1080f..1080f,
-                    onValueChange = { newVal ->
-                        // Inline position edit via a separate "posX" property key
-                        onValueChange("posX", newVal)
-                    }
-                )
-                // Position Y
-                PropertySlider(
-                    name = "Pos Y",
-                    value = posY,
-                    range = -1920f..1920f,
-                    onValueChange = { onValueChange("posY", it) }
-                )
-                // Scale (uniform)
-                PropertySlider(
-                    name = "Scale",
-                    value = scaleX,
-                    range = 0.05f..5.0f,
-                    onValueChange = { onValueChange("scale", it) }
-                )
-                // Rotation
-                PropertySlider(
-                    name = "Rotation",
-                    value = rotation,
-                    range = -360f..360f,
-                    onValueChange = { onValueChange("rotation", it) }
-                )
-                // Opacity
-                PropertySlider(
-                    name = "Opacity",
-                    value = opacity.coerceIn(0f, 1f),
-                    range = 0f..1f,
-                    onValueChange = { onValueChange("opacity", it) }
-                )
-            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    IosControlCenterSlider(
+                        name = "Pos X",
+                        value = posX,
+                        range = -1080f..1080f,
+                        unit = "px",
+                        onValueChange = { onValueChange("posX", it) }
+                    )
+                    IosControlCenterSlider(
+                        name = "Pos Y",
+                        value = posY,
+                        range = -1920f..1920f,
+                        unit = "px",
+                        onValueChange = { onValueChange("posY", it) }
+                    )
+                    IosControlCenterSlider(
+                        name = "Scale",
+                        value = scaleX,
+                        range = 0.05f..5.0f,
+                        unit = "x",
+                        onValueChange = { onValueChange("scale", it) }
+                    )
+                    IosControlCenterSlider(
+                        name = "Rotate",
+                        value = rotation,
+                        range = -360f..360f,
+                        unit = "°",
+                        onValueChange = { onValueChange("rotation", it) }
+                    )
+                    IosControlCenterSlider(
+                        name = "Opacity",
+                        value = opacity.coerceIn(0f, 1f),
+                        range = 0f..1f,
+                        unit = "%",
+                        multiplier = 100f,
+                        onValueChange = { onValueChange("opacity", it) }
+                    )
+                }
 
-            Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
-            // Precision Jog Wheel
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                JogWheel(onStep = { delta -> onValueChange("jog", delta) })
-                Text(text = "X Nudge", color = TextMuted, fontSize = 10.sp)
+                // Apple Watch Jog Wheel Hub
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    JogWheel(onStep = { delta -> onValueChange("jog", delta) })
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "X Nudge",
+                        color = IosLabelSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
-        // ── Keyframe Info ─────────────────────────────────────────────────────
+        // ── 3. Keyframe Diamond Status ──────────────────────────────────────
         val kfCount = selectedLayer.transform.posX.keyframes.size
         if (kfCount > 0) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "◇ $kfCount keyframe${if (kfCount != 1) "s" else ""} on Pos X", color = NeonCyan, fontSize = 11.sp)
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 6.dp)
+            ) {
+                Text(text = "◆", color = IosCyan, fontSize = 13.sp)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "$kfCount keyframe${if (kfCount != 1) "s" else ""} on Pos X",
+                    color = IosCyan,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
 
-        // ── Applied Effects Stack ─────────────────────────────────────────────
+        // ── 4. Applied Effects Stack ─────────────────────────────────────────
         if (selectedLayer.effects.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = StudioBorder, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(8.dp))
-
             Text(
-                text = "Applied Effects (${selectedLayer.effects.size})",
-                color = TextSecondary,
-                fontSize = 12.sp
+                text = "APPLIED EFFECTS (${selectedLayer.effects.size})",
+                color = IosLabelSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(start = 4.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
 
             selectedLayer.effects.forEach { effect ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
-                    shape = RoundedCornerShape(8.dp),
+                GlassmorphicCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp)
+                        .padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    backgroundColor = IosTertiaryBackground,
+                    borderBrush = if (effect.isEnabled) IosActiveGlowBorder else IosGlassBorder,
+                    elevation = 4.dp
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
@@ -191,21 +268,31 @@ fun PropertyInspector(
                         ) {
                             Text(
                                 text = effect.type.displayName,
-                                color = if (effect.isEnabled) NeonCyan else TextMuted,
-                                fontSize = 12.sp,
-                                style = MaterialTheme.typography.labelMedium
+                                color = if (effect.isEnabled) IosCyan else IosLabelSecondary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
-                            Text(
-                                text = if (effect.isEnabled) "ON" else "OFF",
-                                color = if (effect.isEnabled) NeonCyan else TextMuted,
-                                fontSize = 10.sp
-                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (effect.isEnabled) IosCyan.copy(alpha = 0.2f) else Color(0x33000000))
+                                    .border(0.5.dp, if (effect.isEnabled) IosCyan else Color(0x26FFFFFF), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (effect.isEnabled) "ACTIVE" else "OFF",
+                                    color = if (effect.isEnabled) IosCyan else IosLabelTertiary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
 
                         // Effect parameters
                         effect.parameters.values.forEach { param ->
                             Spacer(modifier = Modifier.height(4.dp))
-                            PropertySlider(
+                            IosControlCenterSlider(
                                 name = param.name,
                                 value = param.value,
                                 range = param.min..param.max,
@@ -221,21 +308,34 @@ fun PropertyInspector(
     }
 }
 
+/**
+ * Apple iOS Control Center style thick gradient slider with monospace numeric box.
+ */
 @Composable
-private fun PropertySlider(
+private fun IosControlCenterSlider(
     name: String,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
+    unit: String = "",
+    multiplier: Float = 1.0f,
     onValueChange: (Float) -> Unit
 ) {
-    // Keep a local slider state to avoid recomposition jank on fast drags
     var sliderValue by remember(value) { mutableFloatStateOf(value) }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
     ) {
-        Text(text = name, color = TextSecondary, fontSize = 11.sp, modifier = Modifier.width(55.dp))
+        Text(
+            text = name,
+            color = IosLabelSecondary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.width(52.dp)
+        )
+
         Slider(
             value = sliderValue,
             onValueChange = {
@@ -244,17 +344,31 @@ private fun PropertySlider(
             },
             valueRange = range,
             colors = SliderDefaults.colors(
-                thumbColor = NeonCyan,
-                activeTrackColor = ElectricIndigo,
-                inactiveTrackColor = StudioSurfaceVariant
+                thumbColor = Color.White,
+                activeTrackColor = IosIndigo,
+                inactiveTrackColor = Color(0x33FFFFFF)
             ),
             modifier = Modifier.weight(1f)
         )
-        Text(
-            text = String.format("%.1f", sliderValue),
-            color = TextMuted,
-            fontSize = 10.sp,
-            modifier = Modifier.width(36.dp)
-        )
+
+        // Monospace numeric input display pill
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .width(46.dp)
+                .height(24.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0x33000000))
+                .border(0.5.dp, Color(0x1AFFFFFF), RoundedCornerShape(6.dp))
+        ) {
+            val displayNum = sliderValue * multiplier
+            Text(
+                text = String.format("%.1f", displayNum) + unit,
+                color = IosLabelPrimary,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }

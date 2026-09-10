@@ -13,12 +13,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamotion.ui.theme.*
 
+/**
+ * Ultra-refined iOS Liquid Glass Selection & Transform Gizmo.
+ * Features specular gradient hairline boundaries, circular glass scale pins,
+ * an extended rotation stalk dial, and an animated center anchor pivot.
+ */
 @Composable
 fun InteractiveTransformGizmo(
     width: Float = 240f,
@@ -32,7 +38,11 @@ fun InteractiveTransformGizmo(
     Box(
         modifier = modifier
             .size(width.dp, height.dp)
-            .border(1.5.dp, ElectricIndigo, RoundedCornerShape(4.dp))
+            .border(
+                width = 1.25.dp,
+                brush = IosActiveGlowBorder,
+                shape = RoundedCornerShape(8.dp)
+            )
             .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
                     change.consume()
@@ -40,40 +50,59 @@ fun InteractiveTransformGizmo(
                 }
             }
     ) {
-        // Center Anchor Pivot (+)
+        // ── 1. Center Anchor Pivot (+) with Subtle Glowing Reticle ───────
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(16.dp)
+                .size(20.dp)
                 .align(Alignment.Center)
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val c = Offset(size.width / 2, size.height / 2)
-                drawLine(NeonCyan, Offset(c.x - 8.dp.toPx(), c.y), Offset(c.x + 8.dp.toPx(), c.y), strokeWidth = 2.dp.toPx())
-                drawLine(NeonCyan, Offset(c.x, c.y - 8.dp.toPx()), Offset(c.x, c.y + 8.dp.toPx()), strokeWidth = 2.dp.toPx())
-                drawCircle(NeonCyan, radius = 3.dp.toPx(), center = c)
+                drawLine(
+                    color = IosCyan,
+                    start = Offset(c.x - 8.dp.toPx(), c.y),
+                    end = Offset(c.x + 8.dp.toPx(), c.y),
+                    strokeWidth = 1.5.dp.toPx()
+                )
+                drawLine(
+                    color = IosCyan,
+                    start = Offset(c.x, c.y - 8.dp.toPx()),
+                    end = Offset(c.x, c.y + 8.dp.toPx()),
+                    strokeWidth = 1.5.dp.toPx()
+                )
+                drawCircle(
+                    color = Color.White,
+                    radius = 2.5.dp.toPx(),
+                    center = c
+                )
             }
         }
 
-        // 4 Corner Scale Pins (Uniform Scale)
-        CornerHandle(Alignment.TopStart, onScale)
-        CornerHandle(Alignment.TopEnd, onScale)
-        CornerHandle(Alignment.BottomStart, onScale)
-        CornerHandle(Alignment.BottomEnd, onScale)
+        // ── 2. 4 Circular Glass Scale Pins (Uniform Diagonal Scale) ──────
+        GlassCornerHandle(Alignment.TopStart, onScale)
+        GlassCornerHandle(Alignment.TopEnd, onScale)
+        GlassCornerHandle(Alignment.BottomStart, onScale)
+        GlassCornerHandle(Alignment.BottomEnd, onScale)
 
-        // Top Rotation Dial Handle
+        // ── 3. Top Rotation Stalk Handle ────────────────────────────────
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-36).dp)
+                .offset(y = (-40).dp)
         ) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(24.dp)
+                    .size(26.dp)
                     .clip(CircleShape)
-                    .background(NeonCyan)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(IosCyan, IosIndigo)
+                        )
+                    )
+                    .border(1.dp, Brush.verticalGradient(listOf(Color.White, Color(0x66FFFFFF))), CircleShape)
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
@@ -81,30 +110,40 @@ fun InteractiveTransformGizmo(
                         }
                     }
             ) {
-                Text(text = "↻", color = StudioBackground, fontSize = 14.sp)
+                Text(
+                    text = "↻",
+                    color = Color.White,
+                    fontSize = 13.sp
+                )
             }
 
             Box(
                 modifier = Modifier
                     .width(1.5.dp)
-                    .height(12.dp)
-                    .background(NeonCyan)
+                    .height(14.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(IosCyan, Color.Transparent)
+                        )
+                    )
             )
         }
     }
 }
 
 @Composable
-private fun BoxScope.CornerHandle(
+private fun BoxScope.GlassCornerHandle(
     alignment: Alignment,
     onScale: (Float) -> Unit
 ) {
     Box(
+        contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(14.dp)
+            .size(16.dp)
             .align(alignment)
-            .background(NeonCyan, RoundedCornerShape(2.dp))
-            .border(1.dp, StudioBackground, RoundedCornerShape(2.dp))
+            .clip(CircleShape)
+            .background(Color.White)
+            .border(1.5.dp, IosIndigo, CircleShape)
             .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
                     change.consume()
@@ -112,5 +151,11 @@ private fun BoxScope.CornerHandle(
                     onScale(1.0f + delta * 0.01f)
                 }
             }
-    )
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(IosIndigo, CircleShape)
+        )
+    }
 }

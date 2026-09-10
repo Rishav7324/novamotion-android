@@ -18,6 +18,12 @@ object AssetPickerHelper {
         var layerName = if (type == LayerType.VIDEO) "Video Clip" else if (type == LayerType.AUDIO) "Audio Track" else "Photo Layer"
 
         try {
+            // Persist read access across app restarts for saved project reload
+            val flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(uri, flags)
+        } catch (ignored: Exception) {}
+
+        try {
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(context, uri)
             val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)

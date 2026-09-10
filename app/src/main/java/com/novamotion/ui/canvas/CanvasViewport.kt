@@ -1,31 +1,49 @@
 package com.novamotion.ui.canvas
 
 import android.view.ViewGroup
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.FitScreen
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.GridOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.novamotion.core.model.Project
 import com.novamotion.core.model.evaluate
 import com.novamotion.core.render.GLViewportRenderer
+import com.novamotion.ui.components.GlassmorphicCard
 import com.novamotion.ui.theme.*
 
+/**
+ * Zone 1: Canvas Viewport for NovaMotion Studio.
+ * Real-time OpenGL ES 3.2 rendering over pure OLED Black background with
+ * floating iOS Liquid Glass HUD and precision interactive transform gizmo.
+ */
 @Composable
 fun CanvasViewport(
     project: Project,
@@ -35,6 +53,8 @@ fun CanvasViewport(
     modifier: Modifier = Modifier
 ) {
     var renderer by remember { mutableStateOf<GLViewportRenderer?>(null) }
+    var showGridGuides by remember { mutableStateOf(false) }
+
     val selectedLayer = project.layers.find { it.id == selectedLayerId }
 
     // Evaluated transform values for visual bounding box gizmo
@@ -46,10 +66,10 @@ fun CanvasViewport(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(StudioBackground)
+            .background(IosSystemBackground)
             .clipToBounds()
     ) {
-        // OpenGL ES 3.0 Surface View — RENDERMODE_WHEN_DIRTY saves GPU power at idle
+        // ── 1. OpenGL ES 3.2 Surface View ────────────────────────────────
         AndroidView(
             factory = { context ->
                 android.opengl.GLSurfaceView(context).apply {
@@ -60,7 +80,6 @@ fun CanvasViewport(
                     }
                     renderer = r
                     setRenderer(r)
-                    // Only render when requestRender() is called — avoids wasted frames
                     renderMode = android.opengl.GLSurfaceView.RENDERMODE_WHEN_DIRTY
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -71,69 +90,117 @@ fun CanvasViewport(
             update = { view ->
                 renderer?.currentProject = project
                 renderer?.currentPlayheadMs = currentPlayheadMs
-                // Request a new frame whenever project state or playhead changes
                 view.requestRender()
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Viewport Overlay HUD (resolution + FPS badge)
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-                .align(Alignment.TopCenter)
+        // ── 2. Safe Areas / Rule-of-Thirds Grid Overlay ──────────────────
+        AnimatedVisibility(
+            visible = showGridGuides,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.fillMaxSize()
         ) {
-            Box(
-                modifier = Modifier
-                    .background(StudioSurface.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
-                    .border(1.dp, StudioBorder, RoundedCornerShape(6.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = "${project.width}x${project.height} (${project.fps} FPS)",
-                    color = TextSecondary,
-                    fontSize = 11.sp
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                val gridColor = Color(0x33FFFFFF)
+                val safeColor = Color(0x6664D2FF)
+
+                // 3x3 Rule of Thirds
+                drawLine(gridColor, Offset(w / 3f, 0f), Offset(w / 3f, h), strokeWidth = 1f)
+                drawLine(gridColor, Offset(2 * w / 3f, 0f), Offset(2 * w / 3f, h), strokeWidth = 1f)
+                drawLine(gridColor, Offset(0f, h / 3f), Offset(w, h / 3f), strokeWidth = 1f)
+                drawLine(gridColor, Offset(0f, 2 * h / 3f), Offset(w, 2 * h / 3f), strokeWidth = 1f)
+
+                // 90% Safe Area Title Rect
+                val padX = w * 0.05f
+                val padY = h * 0.05f
+                drawRect(
+                    color = safeColor,
+                    topLeft = Offset(padX, padY),
+                    size = androidx.compose.ui.geometry.Size(w - 2 * padX, h - 2 * padY),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f)
                 )
             }
+        }
 
-            Row {
-                IconButton(onClick = {}, modifier = Modifier.size(28.dp)) {
+        // ── 3. Floating iOS Liquid Glass HUD Capsule ─────────────────────
+        GlassmorphicCard(
+            shape = RoundedCornerShape(20.dp),
+            backgroundColor = IosGlassSurface,
+            borderBrush = IosGlassBorder,
+            elevation = 8.dp,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                // Resolution & FPS badge
+                Text(
+                    text = "${project.width}×${project.height} • ${project.fps} FPS",
+                    color = IosLabelSecondary,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(14.dp)
+                        .background(Color(0x33FFFFFF))
+                )
+
+                // Grid Guide Toggle
+                IconButton(
+                    onClick = { showGridGuides = !showGridGuides },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = if (showGridGuides) Icons.Default.GridOn else Icons.Default.GridOff,
+                        contentDescription = "Toggle Grid Guides",
+                        tint = if (showGridGuides) IosCyan else IosLabelSecondary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+
+                // Aspect Fit Button
+                IconButton(
+                    onClick = {
+                        // Reset zoom/pan or fit canvas
+                        renderer?.let { /* triggered via state */ }
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.FitScreen,
                         contentDescription = "Fit to Screen",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                IconButton(onClick = {}, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.AspectRatio,
-                        contentDescription = "Aspect Ratio",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(16.dp)
+                        tint = IosLabelSecondary,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
         }
 
-        // Interactive Touch Transform Gizmo Layer
+        // ── 4. Interactive Touch Transform Gizmo Layer ───────────────────
         if (selectedLayerId != null && selectedLayer != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(selectedLayerId) {
                         detectTransformGestures { _, pan, zoom, rotation ->
-                            // Scale pan delta based on density ratio
                             onTransformChange(selectedLayerId, pan.x * 2.2f, pan.y * 2.2f, zoom, rotation)
                         }
                     }
             ) {
-                // Interactive Bounding Box positioned & scaled dynamically
-                val boxWidth = (140f * layerScaleX).coerceIn(40f, 400f).dp
-                val boxHeight = (140f * layerScaleX).coerceIn(40f, 400f).dp
+                val boxWidth = (160f * layerScaleX).coerceIn(40f, 440f).dp
+                val boxHeight = (160f * layerScaleX).coerceIn(40f, 440f).dp
 
                 Box(
                     modifier = Modifier
@@ -144,13 +211,49 @@ fun CanvasViewport(
                             translationY = layerY * 0.4f
                             rotationZ = layerRot
                         }
-                        .border(1.5.dp, ElectricIndigo, RoundedCornerShape(4.dp))
+                        .border(1.25.dp, IosActiveGlowBorder, RoundedCornerShape(8.dp))
                 ) {
-                    // Corner scale handles
-                    Box(modifier = Modifier.size(10.dp).background(NeonCyan).align(Alignment.TopStart))
-                    Box(modifier = Modifier.size(10.dp).background(NeonCyan).align(Alignment.TopEnd))
-                    Box(modifier = Modifier.size(10.dp).background(NeonCyan).align(Alignment.BottomStart))
-                    Box(modifier = Modifier.size(10.dp).background(NeonCyan).align(Alignment.BottomEnd))
+                    // Center Pivot Crosshair
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(16.dp).align(Alignment.Center)
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val c = Offset(size.width / 2, size.height / 2)
+                            drawLine(IosCyan, Offset(c.x - 6.dp.toPx(), c.y), Offset(c.x + 6.dp.toPx(), c.y), strokeWidth = 1.5f)
+                            drawLine(IosCyan, Offset(c.x, c.y - 6.dp.toPx()), Offset(c.x, c.y + 6.dp.toPx()), strokeWidth = 1.5f)
+                            drawCircle(Color.White, radius = 2.dp.toPx(), center = c)
+                        }
+                    }
+
+                    // 4 Circular Glass Scale Pins
+                    Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(1.5.dp, IosIndigo, CircleShape).align(Alignment.TopStart))
+                    Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(1.5.dp, IosIndigo, CircleShape).align(Alignment.TopEnd))
+                    Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(1.5.dp, IosIndigo, CircleShape).align(Alignment.BottomStart))
+                    Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(1.5.dp, IosIndigo, CircleShape).align(Alignment.BottomEnd))
+
+                    // Top Rotation Stalk Handle
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.align(Alignment.TopCenter).offset(y = (-32).dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(IosIndigo)
+                                .border(1.dp, Color.White, CircleShape)
+                        ) {
+                            Text(text = "↻", color = Color.White, fontSize = 11.sp)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .width(1.5.dp)
+                                .height(10.dp)
+                                .background(IosIndigo)
+                        )
+                    }
                 }
             }
         }

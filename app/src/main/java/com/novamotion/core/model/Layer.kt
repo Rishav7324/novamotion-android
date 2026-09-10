@@ -26,7 +26,8 @@ data class Layer(
     val textColor: Long = 0xFFFFFFFF,
     val shapeType: String = "RECTANGLE", // RECTANGLE, CIRCLE, STAR
     val fillColor: Long = 0xFF6366F1,
-    val mediaUri: String? = null
+    val mediaUri: String? = null,
+    val sourceInMs: Long = 0L
 ) {
     val endTimeMs: Long get() = startTimeMs + durationMs
 

@@ -28,6 +28,8 @@ class SceneRenderer(private val context: Context) {
     private var colorGradingShader: ShaderProgram? = null
     private var waveWarpShader: ShaderProgram? = null
     private var chromaticShader: ShaderProgram? = null
+    private var bloomGlowShader: ShaderProgram? = null
+    private var glitchShader: ShaderProgram? = null
 
     private val mvpMatrix = FloatArray(16)
     private val projectionMatrix = FloatArray(16)
@@ -78,6 +80,8 @@ class SceneRenderer(private val context: Context) {
         colorGradingShader = ShaderProgram(Shaders.VERTEX_QUAD, ColorGradingShader.FRAGMENT_COLOR_GRADING)
         waveWarpShader = ShaderProgram(Shaders.VERTEX_QUAD, VFXShaderLibrary.FRAGMENT_WAVE_WARP)
         chromaticShader = ShaderProgram(Shaders.VERTEX_QUAD, Shaders.FRAGMENT_CHROMATIC_ABERRATION)
+        bloomGlowShader = ShaderProgram(Shaders.VERTEX_QUAD, Shaders.FRAGMENT_BLOOM_GLOW)
+        glitchShader = ShaderProgram(Shaders.VERTEX_QUAD, VFXShaderLibrary.FRAGMENT_DIGITAL_GLITCH)
 
         // Identity matrix for tex matrix default
         Matrix.setIdentityM(texMatrix, 0)
@@ -99,37 +103,37 @@ class SceneRenderer(private val context: Context) {
             .mapNotNull { it.mediaUri }
             .toSet()
 
-        // Release managers no longer needed
-        val toRemove = videoManagers.keys - videoUris
-        toRemove.forEach { uri ->
-            videoManagers.remove(uri)?.release()
+        // Remove managers for videos that are no longer in the project
+        val iterator = videoManagers.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.key !in videoUris) {
+                entry.value.release()
+                iterator.remove()
+            }
         }
 
-        // Create managers for new video URIs
-        videoUris.forEach { uri ->
-            if (!videoManagers.containsKey(uri)) {
-                val manager = VideoSurfaceTextureManager(context, uri)
-                manager.initGl() // must be called from GL thread
-                videoManagers[uri] = manager
+        // Add managers for new videos
+        for (uri in videoUris) {
+            if (uri !in videoManagers) {
+                videoManagers[uri] = VideoSurfaceTextureManager(context, uri)
+                videoManagers[uri]?.initGl()
             }
         }
     }
 
-    fun renderProject(project: Project, playheadMs: Long, viewportWidth: Int, viewportHeight: Int) {
-        GLES30.glViewport(0, 0, viewportWidth, viewportHeight)
-
-        // Clear with project background colour
-        val bgRed = (((project.backgroundColor shr 16) and 0xFFL).toFloat()) / 255f
-        val bgGreen = (((project.backgroundColor shr 8) and 0xFFL).toFloat()) / 255f
-        val bgBlue = ((project.backgroundColor and 0xFFL).toFloat()) / 255f
-        GLES30.glClearColor(bgRed, bgGreen, bgBlue, 1.0f)
+    fun renderProject(project: Project, playheadMs: Long, width: Int, height: Int) {
+        GLES30.glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
+        GLES30.glViewport(0, 0, width, height)
 
-        // Lazy-sync video managers each render frame (cheap: only acts on diff)
+        // Lazy-sync video managers each render frame
         syncVideoManagers(project)
 
-        // Active visible layers in chronological Z-order
-        val activeLayers = project.layers.filter { it.isActiveAt(playheadMs) }
+        val activeLayers = project.layers
+            .filter { it.isVisible && it.isActiveAt(playheadMs) }
+            .sortedBy { it.startTimeMs }
+
         for (layer in activeLayers) {
             renderLayer(layer, playheadMs, project)
         }
@@ -144,7 +148,9 @@ class SceneRenderer(private val context: Context) {
             LayerType.IMAGE -> renderImageLayer(layer, playheadMs, opacity, project)
             LayerType.TEXT  -> renderTextLayer(layer, playheadMs, opacity, project)
             LayerType.SHAPE -> renderShapeLayer(layer, playheadMs, opacity, project)
-            else -> return  // AUDIO, ADJUSTMENT, NULL_OBJECT — no visual output
+            LayerType.AUDIO, LayerType.NULL_OBJECT, LayerType.ADJUSTMENT -> {
+                // Audio is handled by AudioPlaybackEngine, NULL_OBJECT is non-rendering
+            }
         }
     }
 
@@ -192,14 +198,13 @@ class SceneRenderer(private val context: Context) {
         opacity: Float,
         project: Project
     ) {
-        val shader = baseShader ?: return
         val uri = layer.mediaUri ?: return
         val texResult = ImageTextureLoader.loadImageTexture(context, uri) ?: return
 
         val ratio = texResult.width.toFloat() / texResult.height.toFloat()
         computeMvp(layer, playheadMs, ratio * 0.8f, 0.8f, project)
 
-        bindAndDraw2DTexture(shader, texResult.textureId, opacity)
+        bindAndDrawLayer(layer, texResult.textureId, opacity, playheadMs)
     }
 
     private fun renderTextLayer(
@@ -208,7 +213,6 @@ class SceneRenderer(private val context: Context) {
         opacity: Float,
         project: Project
     ) {
-        val shader = baseShader ?: return
         val texResult = TextTextureGenerator.getOrCreateTextTexture(
             text = layer.textContent,
             colorLong = layer.textColor,
@@ -219,7 +223,7 @@ class SceneRenderer(private val context: Context) {
         val ratio = texResult.width.toFloat() / texResult.height.toFloat()
         computeMvp(layer, playheadMs, ratio * 0.4f, 0.4f, project)
 
-        bindAndDraw2DTexture(shader, texResult.textureId, opacity)
+        bindAndDrawLayer(layer, texResult.textureId, opacity, playheadMs)
     }
 
     private fun renderShapeLayer(
@@ -228,7 +232,6 @@ class SceneRenderer(private val context: Context) {
         opacity: Float,
         project: Project
     ) {
-        val shader = baseShader ?: return
         val texResult = ShapeTextureGenerator.getOrCreateShapeTexture(
             shapeType = layer.shapeType,
             fillColorLong = layer.fillColor,
@@ -237,7 +240,7 @@ class SceneRenderer(private val context: Context) {
         )
 
         computeMvp(layer, playheadMs, 0.6f, 0.6f, project)
-        bindAndDraw2DTexture(shader, texResult.textureId, opacity)
+        bindAndDrawLayer(layer, texResult.textureId, opacity, playheadMs)
     }
 
     private fun computeMvp(
@@ -272,8 +275,18 @@ class SceneRenderer(private val context: Context) {
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, mvpMatrix, 0)
     }
 
-    private fun bindAndDraw2DTexture(shader: ShaderProgram, textureId: Int, opacity: Float) {
+    private fun bindAndDrawLayer(layer: Layer, textureId: Int, opacity: Float, playheadMs: Long) {
         if (textureId == 0) return
+
+        val activeEffect = layer.effects.firstOrNull { it.isEnabled }
+        val shader = when (activeEffect?.type) {
+            com.novamotion.core.model.EffectType.CHROMATIC_ABERRATION -> chromaticShader ?: baseShader
+            com.novamotion.core.model.EffectType.WAVE_WARP -> waveWarpShader ?: baseShader
+            com.novamotion.core.model.EffectType.GLOW_BLOOM -> bloomGlowShader ?: baseShader
+            com.novamotion.core.model.EffectType.GLITCH -> glitchShader ?: baseShader
+            else -> baseShader
+        } ?: return
+
         shader.use()
 
         val mvpHandle     = GLES30.glGetUniformLocation(shader.programId, "u_MVPMatrix")
@@ -281,13 +294,43 @@ class SceneRenderer(private val context: Context) {
         val tintHandle    = GLES30.glGetUniformLocation(shader.programId, "u_TintColor")
         val textureHandle = GLES30.glGetUniformLocation(shader.programId, "u_Texture")
 
-        GLES30.glUniformMatrix4fv(mvpHandle, 1, false, mvpMatrix, 0)
-        GLES30.glUniform1f(opacityHandle, opacity)
-        GLES30.glUniform4f(tintHandle, 1.0f, 1.0f, 1.0f, 1.0f)
+        if (mvpHandle >= 0) GLES30.glUniformMatrix4fv(mvpHandle, 1, false, mvpMatrix, 0)
+        if (opacityHandle >= 0) GLES30.glUniform1f(opacityHandle, opacity)
+        if (tintHandle >= 0) GLES30.glUniform4f(tintHandle, 1.0f, 1.0f, 1.0f, 1.0f)
+
+        // Dynamic uniform configuration for active effect
+        when (activeEffect?.type) {
+            com.novamotion.core.model.EffectType.CHROMATIC_ABERRATION -> {
+                val intensityHandle = GLES30.glGetUniformLocation(shader.programId, "u_Intensity")
+                val intensity = activeEffect.parameters["intensity"]?.value ?: 0.04f
+                if (intensityHandle >= 0) GLES30.glUniform1f(intensityHandle, intensity)
+            }
+            com.novamotion.core.model.EffectType.WAVE_WARP -> {
+                val freqHandle = GLES30.glGetUniformLocation(shader.programId, "u_Frequency")
+                val ampHandle = GLES30.glGetUniformLocation(shader.programId, "u_Amplitude")
+                val phaseHandle = GLES30.glGetUniformLocation(shader.programId, "u_Phase")
+                if (freqHandle >= 0) GLES30.glUniform1f(freqHandle, activeEffect.parameters["frequency"]?.value ?: 12f)
+                if (ampHandle >= 0) GLES30.glUniform1f(ampHandle, activeEffect.parameters["amplitude"]?.value ?: 0.03f)
+                if (phaseHandle >= 0) GLES30.glUniform1f(phaseHandle, (playheadMs * 0.006f) % 6.283f)
+            }
+            com.novamotion.core.model.EffectType.GLOW_BLOOM -> {
+                val threshHandle = GLES30.glGetUniformLocation(shader.programId, "u_Threshold")
+                val intensHandle = GLES30.glGetUniformLocation(shader.programId, "u_Intensity")
+                if (threshHandle >= 0) GLES30.glUniform1f(threshHandle, activeEffect.parameters["threshold"]?.value ?: 0.5f)
+                if (intensHandle >= 0) GLES30.glUniform1f(intensHandle, activeEffect.parameters["intensity"]?.value ?: 1.2f)
+            }
+            com.novamotion.core.model.EffectType.GLITCH -> {
+                val timeHandle = GLES30.glGetUniformLocation(shader.programId, "u_Time")
+                val amountHandle = GLES30.glGetUniformLocation(shader.programId, "u_Amount")
+                if (timeHandle >= 0) GLES30.glUniform1f(timeHandle, playheadMs / 1000f)
+                if (amountHandle >= 0) GLES30.glUniform1f(amountHandle, activeEffect.parameters["amount"]?.value ?: 0.2f)
+            }
+            else -> {}
+        }
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-        GLES30.glUniform1i(textureHandle, 0)
+        if (textureHandle >= 0) GLES30.glUniform1i(textureHandle, 0)
 
         drawQuad()
 
@@ -313,6 +356,8 @@ class SceneRenderer(private val context: Context) {
         colorGradingShader = null
         waveWarpShader = null
         chromaticShader = null
+        bloomGlowShader = null
+        glitchShader = null
         videoManagers.values.forEach { it.release() }
         videoManagers.clear()
         TextTextureGenerator.clearCache()

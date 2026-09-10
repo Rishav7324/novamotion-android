@@ -159,6 +159,61 @@ class EditorViewModel(
         updateProject(updated)
     }
 
+    /**
+     * Splits target or selected layer at the current playhead position.
+     * Accurately splits keyframe curves and media in/out offsets.
+     */
+    fun splitLayerAtPlayhead(targetLayerId: String? = null) {
+        val current = _project.value ?: return
+        val playhead = _playheadMs.value
+        val layerId = targetLayerId ?: _selectedLayerId.value
+        val layerToSplit = if (layerId != null) {
+            current.layers.find { it.id == layerId }
+        } else {
+            // Fallback: find topmost active layer at current playhead
+            current.layers.lastOrNull { it.isActiveAt(playhead) }
+        } ?: return
+
+        val splitResult = com.novamotion.core.timeline.TimelineOperations.splitLayer(layerToSplit, playhead) ?: return
+        val (part1, part2) = splitResult
+
+        val updatedLayers = current.layers.flatMap { layer ->
+            if (layer.id == layerToSplit.id) listOf(part1, part2) else listOf(layer)
+        }
+        updateProject(current.copy(layers = updatedLayers))
+        _selectedLayerId.value = part2.id
+    }
+
+    /**
+     * Trims in-point (head) of a layer.
+     */
+    fun trimLayerHead(layerId: String, newStartTimeMs: Long) {
+        val current = _project.value ?: return
+        val layer = current.layers.find { it.id == layerId } ?: return
+        val trimmed = com.novamotion.core.timeline.TimelineOperations.trimLayerHead(layer, newStartTimeMs)
+        updateLayer(trimmed)
+    }
+
+    /**
+     * Trims out-point (tail) of a layer.
+     */
+    fun trimLayerTail(layerId: String, newEndTimeMs: Long) {
+        val current = _project.value ?: return
+        val layer = current.layers.find { it.id == layerId } ?: return
+        val trimmed = com.novamotion.core.timeline.TimelineOperations.trimLayerTail(layer, newEndTimeMs)
+        updateLayer(trimmed)
+    }
+
+    /**
+     * Duplicates a layer with a new ID.
+     */
+    fun duplicateLayer(layerId: String) {
+        val current = _project.value ?: return
+        val layer = current.layers.find { it.id == layerId } ?: return
+        val duplicated = com.novamotion.core.timeline.TimelineOperations.duplicateLayer(layer)
+        addLayer(duplicated)
+    }
+
     fun undo() {
         if (ProjectManager.undo()) {
             _project.value = ProjectManager.activeProject.value

@@ -1,15 +1,28 @@
 package com.novamotion.ui.layout
 
 import android.os.Environment
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -24,6 +37,9 @@ import com.novamotion.core.shape.ShapeType
 import com.novamotion.core.shape.VectorShapeData
 import com.novamotion.core.text.KineticTextStyle
 import com.novamotion.ui.canvas.CanvasViewport
+import com.novamotion.ui.components.CupertinoSegmentedControl
+import com.novamotion.ui.components.GlassmorphicCard
+import com.novamotion.ui.components.iosSpringClick
 import com.novamotion.ui.curve.BezierGraphEditor
 import com.novamotion.ui.dock.QuickActionDock
 import com.novamotion.ui.editor.EditorViewModel
@@ -33,6 +49,7 @@ import com.novamotion.ui.export.ExportDialog
 import com.novamotion.ui.inspector.PropertyInspector
 import com.novamotion.ui.media.AddAssetBottomSheet
 import com.novamotion.ui.media.AssetPickerHelper
+import com.novamotion.ui.preset.XmlPresetDialog
 import com.novamotion.ui.project.NewProjectDialog
 import com.novamotion.ui.shape.ShapeInspector
 import com.novamotion.ui.templates.TemplateBrowserSheet
@@ -131,9 +148,15 @@ fun StudioWorkspace(
     val exportResultPath by viewModel.exportResultPath.collectAsState()
 
     var showNewProjectDialog by remember { mutableStateOf(false) }
+    var showXmlPresetDialog by remember { mutableStateOf(false) }
+    var selectedDeckTab by remember { mutableIntStateOf(0) } // 0: Timeline, 1: Inspector, 2: Curves
+
+    // Sync curve graph toggle from dock with deck tab
+    LaunchedEffect(showCurveGraph) {
+        selectedDeckTab = if (showCurveGraph) 2 else 0
+    }
 
     val currentProject = project ?: return
-
     val selectedLayer = currentProject.layers.find { it.id == selectedLayerId }
     val isOnKeyframe = selectedLayer?.transform?.posX?.keyframes?.any { it.timeMs == currentPlayheadMs } == true
 
@@ -141,7 +164,6 @@ fun StudioWorkspace(
     val audioEngine = remember { AudioPlaybackEngine(context) }
     DisposableEffect(Unit) { onDispose { audioEngine.release() } }
 
-    // Sync audio source loading when audio layers change
     val audioLayerUri = currentProject.layers.find { it.type == LayerType.AUDIO && it.mediaUri != null }?.mediaUri
     LaunchedEffect(audioLayerUri) {
         if (audioLayerUri != null) {
@@ -151,7 +173,6 @@ fun StudioWorkspace(
         }
     }
 
-    // Trigger play or pause only when playback state toggles
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             audioEngine.play(currentPlayheadMs)
@@ -160,76 +181,177 @@ fun StudioWorkspace(
         }
     }
 
-    // Smooth drift correction during playback (only seeks if drift > 200ms)
     LaunchedEffect(isPlaying, currentPlayheadMs) {
         if (isPlaying) {
             audioEngine.correctDriftIfNeeded(currentPlayheadMs)
         }
     }
 
-    // ─── UI ─────────────────────────────────────────────────────────────────
+    // ─── iOS Liquid Glass Studio Scaffold ────────────────────────────────────
     Scaffold(
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBackToHome) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Home", tint = TextPrimary)
-                    }
-                },
-                title = {
-                    Column {
-                        Text(text = currentProject.title, color = TextPrimary, fontSize = 15.sp, maxLines = 1)
-                        Text(
-                            text = "${currentProject.width}x${currentProject.height} • ${currentProject.fps} FPS • ${currentProject.durationMs / 1000}s",
-                            color = TextMuted,
-                            fontSize = 11.sp
-                        )
-                    }
-                },
-                actions = {
-                    // Undo
-                    IconButton(onClick = { viewModel.undo() }) {
-                        Icon(
-                            Icons.Default.Undo,
-                            contentDescription = "Undo",
-                            tint = if (ProjectManager.canUndo()) TextPrimary else TextMuted
-                        )
-                    }
-                    // Redo
-                    IconButton(onClick = { viewModel.redo() }) {
-                        Icon(
-                            Icons.Default.Redo,
-                            contentDescription = "Redo",
-                            tint = if (ProjectManager.canRedo()) TextPrimary else TextMuted
-                        )
-                    }
-                    // Add Layer
-                    IconButton(onClick = { viewModel.toggleAddLayerSheet(true) }) {
-                        Icon(Icons.Default.AddCircleOutline, contentDescription = "Add Layer", tint = NeonCyan)
-                    }
-                    // Export
-                    Button(
-                        onClick = { viewModel.toggleExportDialog(true) },
-                        colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            // Apple iOS Frosted Glass Navigation Bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                GlassmorphicCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(26.dp),
+                    backgroundColor = IosGlassSurface,
+                    borderBrush = IosGlassBorder,
+                    elevation = 6.dp
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 12.dp)
                     ) {
-                        Icon(Icons.Default.FileDownload, contentDescription = "Export", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = "Export", fontSize = 12.sp)
+                        // Back to Home Button
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x33000000))
+                                    .border(0.5.dp, Color(0x26FFFFFF), CircleShape)
+                                    .iosSpringClick { onBackToHome() }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = "Home",
+                                    tint = IosLabelPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            // Project Title & Specs
+                            Column {
+                                Text(
+                                    text = currentProject.title,
+                                    color = IosLabelPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "${currentProject.width}×${currentProject.height} • ${currentProject.fps} FPS",
+                                    color = IosLabelSecondary,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+
+                        // Actions: Undo, Redo, Add Layer, Export Pill
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            // Undo
+                            IconButton(
+                                onClick = { viewModel.undo() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Undo,
+                                    contentDescription = "Undo",
+                                    tint = if (ProjectManager.canUndo()) IosLabelPrimary else IosLabelTertiary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            // Redo
+                            IconButton(
+                                onClick = { viewModel.redo() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Redo,
+                                    contentDescription = "Redo",
+                                    tint = if (ProjectManager.canRedo()) IosLabelPrimary else IosLabelTertiary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            // Add Layer
+                            IconButton(
+                                onClick = { viewModel.toggleAddLayerSheet(true) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.AddCircleOutline,
+                                    contentDescription = "Add Layer",
+                                    tint = IosCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            // XML Presets (Alight Motion 2-Way Import & Export)
+                            IconButton(
+                                onClick = { showXmlPresetDialog = true },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Code,
+                                    contentDescription = "XML Presets",
+                                    tint = IosMint,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            // Apple Pill "Export" CTA Button
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(IosPurple, IosIndigo)
+                                        )
+                                    )
+                                    .border(0.75.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(16.dp))
+                                    .iosSpringClick { viewModel.toggleExportDialog(true) }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.FileDownload,
+                                        contentDescription = "Export",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Export",
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = StudioSurface)
-            )
+                }
+            }
         },
-        containerColor = StudioBackground
+        containerColor = IosSystemBackground
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // ZONE 1: Canvas Viewport (Top ~45%) with Interactive Touch Gizmo
+            // ── ZONE 1: Seamless OLED Canvas Viewport (~44%) ─────────────────
             CanvasViewport(
                 project = currentProject,
                 currentPlayheadMs = currentPlayheadMs,
@@ -277,10 +399,10 @@ fun StudioWorkspace(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.46f)
+                    .weight(0.44f)
             )
 
-            // ZONE 2: Quick Action Dock (Center ~56dp)
+            // ── ZONE 2: Floating Dynamic Glass Island Dock (54dp) ─────────────
             QuickActionDock(
                 currentPlayheadMs = currentPlayheadMs,
                 isPlaying = isPlaying,
@@ -307,22 +429,7 @@ fun StudioWorkspace(
                     viewModel.updateProject(updatedProj)
                 },
                 onCutClip = {
-                    val layer = selectedLayer ?: return@QuickActionDock
-                    if (currentPlayheadMs > layer.startTimeMs && currentPlayheadMs < layer.endTimeMs) {
-                        val part1 = layer.copy(durationMs = currentPlayheadMs - layer.startTimeMs)
-                        val part2 = layer.copy(
-                            id = java.util.UUID.randomUUID().toString(),
-                            name = "${layer.name} (Split)",
-                            startTimeMs = currentPlayheadMs,
-                            durationMs = layer.endTimeMs - currentPlayheadMs
-                        )
-                        val updatedLayers = currentProject.layers.flatMap {
-                            if (it.id == layer.id) listOf(part1, part2) else listOf(it)
-                        }
-                        val updatedProj = currentProject.copy(layers = updatedLayers)
-                        viewModel.updateProject(updatedProj)
-                        viewModel.selectLayer(part2.id)
-                    }
+                    viewModel.splitLayerAtPlayhead()
                 },
                 onUndo = { viewModel.undo() },
                 onRedo = { viewModel.redo() },
@@ -330,68 +437,69 @@ fun StudioWorkspace(
                 onOpenEffects = { viewModel.toggleEffectsSheet(true) }
             )
 
-            // ZONE 3: Timeline + Inspector (Bottom ~54%)
-            Box(
+            // ── ZONE 3: Cupertino Modular Lower Deck (~56%) ───────────────────
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.54f)
+                    .weight(0.56f)
+                    .background(IosSecondaryBackground)
             ) {
-                if (showCurveGraph) {
-                    BezierGraphEditor(
-                        curve = selectedLayer?.transform?.posX?.keyframes?.firstOrNull()?.curve ?: BezierControlPoints(),
-                        onCurveChanged = { newCurve ->
-                            val layer = selectedLayer ?: return@BezierGraphEditor
-                            val updatedKeyframes = layer.transform.posX.keyframes.map {
-                                if (it.timeMs == currentPlayheadMs) it.copy(curve = newCurve) else it
-                            }
-                            val updatedLayer = layer.copy(
-                                transform = layer.transform.copy(posX = layer.transform.posX.copy(keyframes = updatedKeyframes))
-                            )
-                            val updatedProj = currentProject.copy(
-                                layers = currentProject.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
-                            )
-                            viewModel.updateProject(updatedProj, recordHistory = false)
-                        },
-                        onClose = { viewModel.toggleCurveGraph() },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        MagneticTimeline(
-                            project = currentProject,
-                            currentPlayheadMs = currentPlayheadMs,
-                            selectedLayerId = selectedLayerId,
-                            onSeek = { ms ->
-                                viewModel.seekTo(ms)
-                                audioEngine.seekTo(ms)
-                            },
-                            onSelectLayer = { id -> viewModel.selectLayer(id) },
-                            onLayerMoved = { layerId, newStartMs ->
-                                val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
-                                val updatedLayer = layer.copy(startTimeMs = newStartMs)
-                                val updatedProj = currentProject.copy(
-                                    layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
-                                )
-                                viewModel.updateProject(updatedProj)
-                            },
-                            onLayerTrimmed = { layerId, newDurationMs ->
-                                val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
-                                val updatedLayer = layer.copy(durationMs = newDurationMs)
-                                val updatedProj = currentProject.copy(
-                                    layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
-                                )
-                                viewModel.updateProject(updatedProj)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(0.55f)
-                        )
+                // Cupertino Sliding Segmented Control Bar
+                CupertinoSegmentedControl(
+                    items = listOf("☵ Timeline", "🎛 Inspector", "∿ Curves"),
+                    selectedIndex = selectedDeckTab,
+                    onSelectIndex = { tab ->
+                        selectedDeckTab = tab
+                        if (tab == 2 && !showCurveGraph) viewModel.toggleCurveGraph()
+                        if (tab != 2 && showCurveGraph) viewModel.toggleCurveGraph()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                )
 
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(0.45f)
-                        ) {
+                // Animated Modular Content Deck
+                AnimatedContent(
+                    targetState = selectedDeckTab,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "modularDeckSwap",
+                    modifier = Modifier.fillMaxSize()
+                ) { targetTab ->
+                    when (targetTab) {
+                        0 -> {
+                            // Full-height Magnetic Timeline View
+                            MagneticTimeline(
+                                project = currentProject,
+                                currentPlayheadMs = currentPlayheadMs,
+                                selectedLayerId = selectedLayerId,
+                                onSeek = { ms ->
+                                    viewModel.seekTo(ms)
+                                    audioEngine.seekTo(ms)
+                                },
+                                onSelectLayer = { id ->
+                                    viewModel.selectLayer(id)
+                                },
+                                onLayerMoved = { layerId, newStartMs ->
+                                    val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
+                                    val updatedLayer = layer.copy(startTimeMs = newStartMs)
+                                    val updatedProj = currentProject.copy(
+                                        layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
+                                    )
+                                    viewModel.updateProject(updatedProj)
+                                },
+                                onLayerTrimmed = { layerId, newDurationMs ->
+                                    val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
+                                    val updatedLayer = layer.copy(durationMs = newDurationMs)
+                                    val updatedProj = currentProject.copy(
+                                        layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
+                                    )
+                                    viewModel.updateProject(updatedProj)
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        1 -> {
+                            // Full-height Contextual Layer Inspector
                             when (selectedLayer?.type) {
                                 LayerType.TEXT -> {
                                     val currentStyle = KineticTextStyle(
@@ -439,7 +547,7 @@ fun StudioWorkspace(
                                         currentPlayheadMs = currentPlayheadMs,
                                         onValueChange = { prop, newVal ->
                                             val layer = selectedLayer ?: return@PropertyInspector
-                                             val updatedTransform = when (prop) {
+                                            val updatedTransform = when (prop) {
                                                 "posX" -> layer.transform.copy(posX = AnimatableProperty(newVal))
                                                 "posY" -> layer.transform.copy(posY = AnimatableProperty(newVal))
                                                 "scale" -> layer.transform.copy(
@@ -466,12 +574,33 @@ fun StudioWorkspace(
                                 }
                             }
                         }
+                        2 -> {
+                            // Bézier Speed & Value Timing Graph
+                            BezierGraphEditor(
+                                curve = selectedLayer?.transform?.posX?.keyframes?.firstOrNull()?.curve ?: BezierControlPoints(),
+                                onCurveChanged = { newCurve ->
+                                    val layer = selectedLayer ?: return@BezierGraphEditor
+                                    val updatedKeyframes = layer.transform.posX.keyframes.map {
+                                        if (it.timeMs == currentPlayheadMs) it.copy(curve = newCurve) else it
+                                    }
+                                    val updatedLayer = layer.copy(
+                                        transform = layer.transform.copy(posX = layer.transform.posX.copy(keyframes = updatedKeyframes))
+                                    )
+                                    val updatedProj = currentProject.copy(
+                                        layers = currentProject.layers.map { if (it.id == updatedLayer.id) updatedLayer else it }
+                                    )
+                                    viewModel.updateProject(updatedProj, recordHistory = false)
+                                },
+                                onClose = { selectedDeckTab = 0 },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // ─── Dialogs & Sheets ────────────────────────────────────────────────
+        // ─── Modal Dialogs & Sheets ──────────────────────────────────────────
 
         if (showNewProjectDialog) {
             NewProjectDialog(
@@ -571,17 +700,25 @@ fun StudioWorkspace(
                         )
                         viewModel.setExporting(false)
                         if (res.isSuccess) {
-                            // Save to system Gallery (visible in Photos/Gallery apps)
                             val displayName = "NovaMotion_${System.currentTimeMillis()}.mp4"
                             val galleryUri = MediaStoreExporter.saveToGallery(
                                 context = context,
                                 sourceFile = targetFile,
                                 displayName = displayName
                             )
-                            // Report gallery URI if saved, else fallback to file path
                             viewModel.setExportResult(galleryUri?.toString() ?: targetFile.absolutePath)
                         }
                     }
+                }
+            )
+        }
+
+        if (showXmlPresetDialog) {
+            XmlPresetDialog(
+                currentProject = currentProject,
+                onDismiss = { showXmlPresetDialog = false },
+                onProjectImported = { imported ->
+                    viewModel.loadProject(imported)
                 }
             )
         }

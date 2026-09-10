@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,8 +19,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamotion.R
@@ -27,6 +32,10 @@ import com.novamotion.core.model.Project
 import com.novamotion.core.project.AspectRatioPreset
 import com.novamotion.core.project.ProjectManager
 import com.novamotion.core.project.ProjectPersistenceManager
+import com.novamotion.ui.components.CupertinoSegmentedControl
+import com.novamotion.ui.components.GlassmorphicCard
+import com.novamotion.ui.components.iosSpringClick
+import com.novamotion.ui.preset.XmlPresetDialog
 import com.novamotion.ui.project.NewProjectDialog
 import com.novamotion.ui.theme.*
 import kotlinx.coroutines.launch
@@ -41,20 +50,19 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showXmlImportDialog by remember { mutableStateOf(false) }
     var selectedPresetForCreate by remember { mutableStateOf<AspectRatioPreset?>(null) }
-    var activeTab by remember { mutableStateOf(0) } // 0: Projects, 1: Templates
+    var activeTab by remember { mutableIntStateOf(0) } // 0: Projects, 1: Templates
     var isLoadingProjects by remember { mutableStateOf(true) }
 
     // Load saved projects from disk on first launch
     val recentProjects = remember { mutableStateListOf<Project>() }
     LaunchedEffect(Unit) {
         isLoadingProjects = true
-        // 1. Try to load saved project from disk
         val savedProject = ProjectPersistenceManager.loadLastProject(context)
         if (savedProject != null) {
             recentProjects.add(0, savedProject)
         }
-        // 2. Load all other saved projects
         val allIds = ProjectPersistenceManager.listSavedProjectIds(context)
         for (id in allIds) {
             if (savedProject?.id != id) {
@@ -62,7 +70,6 @@ fun HomeScreen(
                 if (proj != null) recentProjects.add(proj)
             }
         }
-        // 3. If no saved projects exist, seed with demo entries
         if (recentProjects.isEmpty()) {
             recentProjects.addAll(
                 listOf(
@@ -77,53 +84,126 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = R.drawable.app_logo),
-                            contentDescription = "NovaMotion Logo",
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "NovaMotion Studio",
-                                color = TextPrimary,
-                                fontSize = 16.sp,
-                                style = MaterialTheme.typography.titleMedium
+            // Apple Frosted Glass Top Bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            ) {
+                GlassmorphicCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(27.dp),
+                    backgroundColor = IosGlassSurface,
+                    borderBrush = IosGlassBorder,
+                    elevation = 6.dp
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 14.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(id = R.drawable.app_logo),
+                                contentDescription = "NovaMotion Logo",
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                             )
-                            Text(
-                                text = "Pro Motion Graphics & VFX",
-                                color = NeonCyan,
-                                fontSize = 10.sp
-                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "NovaMotion Studio",
+                                    color = IosLabelPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Pro Motion Graphics & VFX",
+                                    color = IosCyan,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Import XML Preset Button
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x33000000))
+                                    .border(0.5.dp, Color(0x26FFFFFF), CircleShape)
+                                    .iosSpringClick { showXmlImportDialog = true }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Code,
+                                    contentDescription = "Import XML Preset",
+                                    tint = IosMint,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            // Settings Icon Button
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x33000000))
+                                    .border(0.5.dp, Color(0x26FFFFFF), CircleShape)
+                                    .iosSpringClick { onOpenSettings() }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Settings",
+                                    tint = IosLabelSecondary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
-                },
-                actions = {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextSecondary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = StudioSurface)
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showCreateDialog = true },
-                containerColor = ElectricIndigo,
-                contentColor = TextPrimary,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "New Project")
+                }
             }
         },
-        containerColor = StudioBackground
+        floatingActionButton = {
+            // Apple Pill Floating Action Button
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(IosPurple, IosIndigo)
+                        )
+                    )
+                    .border(1.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(22.dp))
+                    .iosSpringClick { showCreateDialog = true }
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "New Project",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        },
+        containerColor = IosSystemBackground
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -131,14 +211,15 @@ fun HomeScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Aspect Ratio Quick Starter Carousel
+            // ── Quick Aspect Ratio Starter Carousel ─────────────────────────
             Text(
-                text = "Quick Project Creation",
-                color = TextSecondary,
-                fontSize = 12.sp,
-                style = MaterialTheme.typography.labelMedium
+                text = "START NEW CANVAS",
+                color = IosLabelSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -152,53 +233,54 @@ fun HomeScreen(
                     Triple(AspectRatioPreset.REELS_9_16, "9:16", "Reels/TikTok"),
                     Triple(AspectRatioPreset.CINEMA_16_9, "16:9", "YouTube/Cinema"),
                     Triple(AspectRatioPreset.SQUARE_1_1, "1:1", "Square Post"),
-                    Triple(AspectRatioPreset.FEED_4_5, "4:5", "Portrait Post"),
+                    Triple(AspectRatioPreset.FEED_4_5, "4:5", "Portrait"),
                     Triple(AspectRatioPreset.ULTRAWIDE_21_9, "21:9", "Ultrawide")
                 ).forEach { (preset, ratio, label) ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
-                        shape = RoundedCornerShape(12.dp),
+                    GlassmorphicCard(
                         modifier = Modifier
-                            .width(110.dp)
-                            .clickable {
+                            .width(115.dp)
+                            .iosSpringClick {
                                 selectedPresetForCreate = preset
                                 showCreateDialog = true
-                            }
+                            },
+                        shape = RoundedCornerShape(16.dp),
+                        backgroundColor = IosGlassSurface,
+                        borderBrush = IosGlassBorder,
+                        elevation = 4.dp
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(12.dp)
+                            modifier = Modifier.padding(14.dp)
                         ) {
-                            Text(text = ratio, color = NeonCyan, fontSize = 16.sp, style = MaterialTheme.typography.titleMedium)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(text = label, color = TextMuted, fontSize = 10.sp)
+                            Text(
+                                text = ratio,
+                                color = IosCyan,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = label,
+                                color = IosLabelSecondary,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Navigation Tabs
-            TabRow(
-                selectedTabIndex = activeTab,
-                containerColor = StudioSurface,
-                contentColor = NeonCyan,
-                divider = {}
-            ) {
-                Tab(
-                    selected = activeTab == 0,
-                    onClick = { activeTab = 0 },
-                    text = { Text("Recent Projects (${recentProjects.size})") }
-                )
-                Tab(
-                    selected = activeTab == 1,
-                    onClick = { activeTab = 1 },
-                    text = { Text("Starter Templates") }
-                )
-            }
+            // ── Cupertino Segmented Navigation Bar ───────────────────────────
+            CupertinoSegmentedControl(
+                items = listOf("Recent Projects (${recentProjects.size})", "Starter Templates"),
+                selectedIndex = activeTab,
+                onSelectIndex = { activeTab = it }
+            )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             if (activeTab == 0) {
                 if (isLoadingProjects) {
@@ -206,7 +288,7 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        CircularProgressIndicator(color = NeonCyan)
+                        CircularProgressIndicator(color = IosIndigo)
                     }
                 } else {
                     // Projects Grid
@@ -231,9 +313,9 @@ fun HomeScreen(
                     }
                 }
             } else {
-                // Starter Templates
+                // Starter Templates List
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     listOf(
@@ -242,28 +324,53 @@ fun HomeScreen(
                         Triple("Hollywood Cinematic Film Intro", "3D Kodak Portra LUT color grade with film vignette", AspectRatioPreset.CINEMA_16_9),
                         Triple("Audio Reactive Bass Spectrum", "Real-time spring physics spectrum visualizer", AspectRatioPreset.SQUARE_1_1)
                     ).forEach { (title, desc, preset) ->
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
-                            shape = RoundedCornerShape(10.dp),
+                        GlassmorphicCard(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
+                                .iosSpringClick {
                                     val tplProj = ProjectManager.createProject(title, preset)
                                     recentProjects.add(0, tplProj)
                                     onOpenProject(tplProj)
-                                }
+                                },
+                            shape = RoundedCornerShape(16.dp),
+                            backgroundColor = IosGlassSurface,
+                            borderBrush = IosGlassBorder,
+                            elevation = 4.dp
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(14.dp)
                             ) {
-                                Icon(Icons.Default.AutoFixHigh, contentDescription = null, tint = NeonCyan)
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(IosIndigo.copy(alpha = 0.2f))
+                                        .border(0.75.dp, IosIndigo, CircleShape)
+                                ) {
+                                    Icon(
+                                        Icons.Default.AutoFixHigh,
+                                        contentDescription = null,
+                                        tint = IosCyan,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = title, color = TextPrimary, fontSize = 13.sp)
-                                    Text(text = desc, color = TextMuted, fontSize = 11.sp)
+                                    Text(
+                                        text = title,
+                                        color = IosLabelPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = desc,
+                                        color = IosLabelSecondary,
+                                        fontSize = 11.sp
+                                    )
                                 }
-                                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextMuted)
+                                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = IosLabelTertiary)
                             }
                         }
                     }
@@ -287,6 +394,18 @@ fun HomeScreen(
                 }
             )
         }
+
+        if (showXmlImportDialog) {
+            val placeholder = remember { ProjectManager.createProject("Community Preset") }
+            XmlPresetDialog(
+                currentProject = placeholder,
+                onDismiss = { showXmlImportDialog = false },
+                onProjectImported = { imported ->
+                    recentProjects.add(0, imported)
+                    onOpenProject(imported)
+                }
+            )
+        }
     }
 }
 
@@ -298,13 +417,14 @@ private fun ProjectCard(
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
-        shape = RoundedCornerShape(12.dp),
+    GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .border(1.dp, StudioBorder, RoundedCornerShape(12.dp))
+            .iosSpringClick { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        backgroundColor = IosGlassSurface,
+        borderBrush = IosGlassBorder,
+        elevation = 6.dp
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Box(
@@ -312,52 +432,66 @@ private fun ProjectCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(90.dp)
-                    .background(StudioBackground, RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(IosSystemBackground)
+                    .border(0.5.dp, Color(0x1AFFFFFF), RoundedCornerShape(10.dp))
             ) {
                 Icon(
                     Icons.Default.MovieCreation,
                     contentDescription = null,
-                    tint = ElectricIndigo,
-                    modifier = Modifier.size(36.dp)
+                    tint = IosIndigo,
+                    modifier = Modifier.size(34.dp)
                 )
-                // Delete button (top-right)
+                // Delete button
                 IconButton(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(26.dp)
                         .align(Alignment.TopEnd)
+                        .padding(2.dp)
                 ) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Delete",
-                        tint = TextMuted,
-                        modifier = Modifier.size(16.dp)
+                        tint = IosLabelTertiary,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = project.title,
-                color = TextPrimary,
+                color = IosLabelPrimary,
                 fontSize = 13.sp,
-                maxLines = 1,
-                style = MaterialTheme.typography.titleSmall
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
             )
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = "${project.width}x${project.height}", color = TextMuted, fontSize = 10.sp)
-                Text(text = "${project.fps} FPS", color = NeonCyan, fontSize = 10.sp)
+                Text(
+                    text = "${project.width}×${project.height}",
+                    color = IosLabelSecondary,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    text = "${project.fps} FPS",
+                    color = IosCyan,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium
+                )
             }
             Text(
                 text = "${project.layers.size} layer${if (project.layers.size != 1) "s" else ""}",
-                color = TextMuted,
+                color = IosLabelTertiary,
                 fontSize = 10.sp
             )
         }
@@ -366,19 +500,20 @@ private fun ProjectCard(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Project?", color = TextPrimary) },
-            text = { Text("\"${project.title}\" will be permanently deleted.", color = TextSecondary) },
+            title = { Text("Delete Project?", color = IosLabelPrimary) },
+            text = { Text("\"${project.title}\" will be permanently deleted.", color = IosLabelSecondary) },
             confirmButton = {
                 TextButton(onClick = { showDeleteConfirm = false; onDelete() }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text("Delete", color = IosRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel", color = TextSecondary)
+                    Text("Cancel", color = IosLabelSecondary)
                 }
             },
-            containerColor = StudioSurface
+            containerColor = IosTertiaryBackground,
+            shape = RoundedCornerShape(20.dp)
         )
     }
 }
