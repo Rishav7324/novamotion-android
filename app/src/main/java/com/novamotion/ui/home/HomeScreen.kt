@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,8 +26,10 @@ import com.novamotion.R
 import com.novamotion.core.model.Project
 import com.novamotion.core.project.AspectRatioPreset
 import com.novamotion.core.project.ProjectManager
+import com.novamotion.core.project.ProjectPersistenceManager
 import com.novamotion.ui.project.NewProjectDialog
 import com.novamotion.ui.theme.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,16 +37,42 @@ fun HomeScreen(
     onOpenProject: (Project) -> Unit,
     onOpenSettings: () -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var showCreateDialog by remember { mutableStateOf(false) }
     var selectedPresetForCreate by remember { mutableStateOf<AspectRatioPreset?>(null) }
     var activeTab by remember { mutableStateOf(0) } // 0: Projects, 1: Templates
+    var isLoadingProjects by remember { mutableStateOf(true) }
 
-    val recentProjects = remember {
-        mutableStateListOf(
-            ProjectManager.createProject("Cyberpunk Motion Intro", AspectRatioPreset.REELS_9_16),
-            ProjectManager.createProject("Velocity Beat Drop", AspectRatioPreset.REELS_9_16),
-            ProjectManager.createProject("Cinematic YouTube Vlog", AspectRatioPreset.CINEMA_16_9)
-        )
+    // Load saved projects from disk on first launch
+    val recentProjects = remember { mutableStateListOf<Project>() }
+    LaunchedEffect(Unit) {
+        isLoadingProjects = true
+        // 1. Try to load saved project from disk
+        val savedProject = ProjectPersistenceManager.loadLastProject(context)
+        if (savedProject != null) {
+            recentProjects.add(0, savedProject)
+        }
+        // 2. Load all other saved projects
+        val allIds = ProjectPersistenceManager.listSavedProjectIds(context)
+        for (id in allIds) {
+            if (savedProject?.id != id) {
+                val proj = ProjectPersistenceManager.loadProject(context, id)
+                if (proj != null) recentProjects.add(proj)
+            }
+        }
+        // 3. If no saved projects exist, seed with demo entries
+        if (recentProjects.isEmpty()) {
+            recentProjects.addAll(
+                listOf(
+                    ProjectManager.createProject("Cyberpunk Motion Intro", AspectRatioPreset.REELS_9_16),
+                    ProjectManager.createProject("Velocity Beat Drop", AspectRatioPreset.REELS_9_16),
+                    ProjectManager.createProject("Cinematic YouTube Vlog", AspectRatioPreset.CINEMA_16_9)
+                )
+            )
+        }
+        isLoadingProjects = false
     }
 
     Scaffold(
@@ -150,7 +179,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Navigation Tabs: Projects / Templates
+            // Navigation Tabs
             TabRow(
                 selectedTabIndex = activeTab,
                 containerColor = StudioSurface,
@@ -172,66 +201,32 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             if (activeTab == 0) {
-                // Projects Grid
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(recentProjects) { proj ->
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onOpenProject(proj) }
-                                .border(1.dp, StudioBorder, RoundedCornerShape(12.dp))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(90.dp)
-                                        .background(StudioBackground, RoundedCornerShape(8.dp))
-                                ) {
-                                    Icon(
-                                        Icons.Default.MovieCreation,
-                                        contentDescription = null,
-                                        tint = ElectricIndigo,
-                                        modifier = Modifier.size(36.dp)
-                                    )
+                if (isLoadingProjects) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        CircularProgressIndicator(color = NeonCyan)
+                    }
+                } else {
+                    // Projects Grid
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(recentProjects) { proj ->
+                            ProjectCard(
+                                project = proj,
+                                onClick = { onOpenProject(proj) },
+                                onDelete = {
+                                    scope.launch {
+                                        ProjectPersistenceManager.deleteProject(context, proj.id)
+                                        recentProjects.remove(proj)
+                                    }
                                 }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = proj.title,
-                                    color = TextPrimary,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-
-                                Spacer(modifier = Modifier.height(2.dp))
-
-                                Row(
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "${proj.width}x${proj.height}",
-                                        color = TextMuted,
-                                        fontSize = 10.sp
-                                    )
-                                    Text(
-                                        text = "${proj.fps} FPS",
-                                        color = NeonCyan,
-                                        fontSize = 10.sp
-                                    )
-                                }
-                            }
+                            )
                         }
                     }
                 }
@@ -242,18 +237,19 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     listOf(
-                        "Cyberpunk Neon Kinetic Title" to "Vibrant glowing text animation with chromatic split",
-                        "Velocity AMV Beat Ramp" to "Optical flow speed ramp with mirror motion tile",
-                        "Hollywood Cinematic Film Intro" to "3D Kodak Portra LUT color grade with film vignette",
-                        "Audio Reactive Bass Spectrum" to "Real-time spring physics spectrum visualizer"
-                    ).forEach { (title, desc) ->
+                        Triple("Cyberpunk Neon Kinetic Title", "Vibrant glowing text animation with chromatic split", AspectRatioPreset.REELS_9_16),
+                        Triple("Velocity AMV Beat Ramp", "Optical flow speed ramp with mirror motion tile", AspectRatioPreset.REELS_9_16),
+                        Triple("Hollywood Cinematic Film Intro", "3D Kodak Portra LUT color grade with film vignette", AspectRatioPreset.CINEMA_16_9),
+                        Triple("Audio Reactive Bass Spectrum", "Real-time spring physics spectrum visualizer", AspectRatioPreset.SQUARE_1_1)
+                    ).forEach { (title, desc, preset) ->
                         Card(
                             colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val tplProj = ProjectManager.createProject(title, AspectRatioPreset.REELS_9_16)
+                                    val tplProj = ProjectManager.createProject(title, preset)
+                                    recentProjects.add(0, tplProj)
                                     onOpenProject(tplProj)
                                 }
                         ) {
@@ -275,17 +271,114 @@ fun HomeScreen(
             }
         }
 
-        // New Project Creation Dialog
         if (showCreateDialog) {
             NewProjectDialog(
                 onDismiss = { showCreateDialog = false },
                 onCreateProject = { title, preset, fps ->
-                    val newProj = ProjectManager.createProject(title = title, aspectRatio = selectedPresetForCreate ?: preset, fps = fps)
+                    val newProj = ProjectManager.createProject(
+                        title = title,
+                        aspectRatio = selectedPresetForCreate ?: preset,
+                        fps = fps
+                    )
                     recentProjects.add(0, newProj)
                     showCreateDialog = false
+                    selectedPresetForCreate = null
                     onOpenProject(newProj)
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun ProjectCard(
+    project: Project,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = StudioSurfaceVariant),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .border(1.dp, StudioBorder, RoundedCornerShape(12.dp))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp)
+                    .background(StudioBackground, RoundedCornerShape(8.dp))
+            ) {
+                Icon(
+                    Icons.Default.MovieCreation,
+                    contentDescription = null,
+                    tint = ElectricIndigo,
+                    modifier = Modifier.size(36.dp)
+                )
+                // Delete button (top-right)
+                IconButton(
+                    onClick = { showDeleteConfirm = true },
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.TopEnd)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Delete",
+                        tint = TextMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = project.title,
+                color = TextPrimary,
+                fontSize = 13.sp,
+                maxLines = 1,
+                style = MaterialTheme.typography.titleSmall
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "${project.width}x${project.height}", color = TextMuted, fontSize = 10.sp)
+                Text(text = "${project.fps} FPS", color = NeonCyan, fontSize = 10.sp)
+            }
+            Text(
+                text = "${project.layers.size} layer${if (project.layers.size != 1) "s" else ""}",
+                color = TextMuted,
+                fontSize = 10.sp
+            )
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Project?", color = TextPrimary) },
+            text = { Text("\"${project.title}\" will be permanently deleted.", color = TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirm = false; onDelete() }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = StudioSurface
+        )
     }
 }

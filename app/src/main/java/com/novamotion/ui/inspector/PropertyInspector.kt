@@ -8,16 +8,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamotion.core.model.Layer
+import com.novamotion.core.model.evaluate
 import com.novamotion.ui.theme.*
 
+/**
+ * Production PropertyInspector.
+ *
+ * Previous version had hardcoded slider values (value = 1.0f / 0f).
+ * This version reads the actual evaluated transform values at currentPlayheadMs
+ * and displays them correctly.
+ */
 @Composable
 fun PropertyInspector(
     selectedLayer: Layer?,
@@ -39,6 +46,13 @@ fun PropertyInspector(
         return
     }
 
+    // Evaluate actual transform values at the current playhead position
+    val scaleX   = selectedLayer.transform.scaleX.evaluate(currentPlayheadMs)
+    val rotation = selectedLayer.transform.rotation.evaluate(currentPlayheadMs)
+    val opacity  = selectedLayer.transform.opacity.evaluate(currentPlayheadMs)
+    val posX     = selectedLayer.transform.posX.evaluate(currentPlayheadMs)
+    val posY     = selectedLayer.transform.posY.evaluate(currentPlayheadMs)
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -47,19 +61,24 @@ fun PropertyInspector(
             .padding(12.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        // Layer Header
+        // ── Layer Header ──────────────────────────────────────────────────────
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = "${selectedLayer.name} (${selectedLayer.type.label})",
-                color = TextPrimary,
-                fontSize = 14.sp
-            )
-
-            // Add Effect Button
+            Column {
+                Text(
+                    text = selectedLayer.name,
+                    color = TextPrimary,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = "${selectedLayer.type.label} • ${selectedLayer.durationMs / 1000.0f}s",
+                    color = TextMuted,
+                    fontSize = 10.sp
+                )
+            }
             Button(
                 onClick = onAddEffectClick,
                 colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo),
@@ -73,28 +92,53 @@ fun PropertyInspector(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider(color = StudioBorder.copy(alpha = 0.5f))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Transform Controls Row with Jog Wheel
+        // ── Transform Section ─────────────────────────────────────────────────
+        Text(text = "Transform", color = TextSecondary, fontSize = 11.sp, style = MaterialTheme.typography.labelSmall)
+        Spacer(modifier = Modifier.height(8.dp))
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                // Position X
+                PropertySlider(
+                    name = "Pos X",
+                    value = posX,
+                    range = -1080f..1080f,
+                    onValueChange = { newVal ->
+                        // Inline position edit via a separate "posX" property key
+                        onValueChange("posX", newVal)
+                    }
+                )
+                // Position Y
+                PropertySlider(
+                    name = "Pos Y",
+                    value = posY,
+                    range = -1920f..1920f,
+                    onValueChange = { onValueChange("posY", it) }
+                )
+                // Scale (uniform)
                 PropertySlider(
                     name = "Scale",
-                    value = 1.0f,
-                    range = 0.1f..3.0f,
+                    value = scaleX,
+                    range = 0.05f..5.0f,
                     onValueChange = { onValueChange("scale", it) }
                 )
+                // Rotation
                 PropertySlider(
                     name = "Rotation",
-                    value = 0f,
-                    range = -180f..180f,
+                    value = rotation,
+                    range = -360f..360f,
                     onValueChange = { onValueChange("rotation", it) }
                 )
+                // Opacity
                 PropertySlider(
                     name = "Opacity",
-                    value = 1.0f,
+                    value = opacity.coerceIn(0f, 1f),
                     range = 0f..1f,
                     onValueChange = { onValueChange("opacity", it) }
                 )
@@ -105,11 +149,20 @@ fun PropertyInspector(
             // Precision Jog Wheel
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 JogWheel(onStep = { delta -> onValueChange("jog", delta) })
-                Text(text = "Precision", color = TextMuted, fontSize = 10.sp)
+                Text(text = "X Nudge", color = TextMuted, fontSize = 10.sp)
             }
         }
 
-        // Active Effects Stack
+        // ── Keyframe Info ─────────────────────────────────────────────────────
+        val kfCount = selectedLayer.transform.posX.keyframes.size
+        if (kfCount > 0) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "◇ $kfCount keyframe${if (kfCount != 1) "s" else ""} on Pos X", color = NeonCyan, fontSize = 11.sp)
+            }
+        }
+
+        // ── Applied Effects Stack ─────────────────────────────────────────────
         if (selectedLayer.effects.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = StudioBorder, thickness = 1.dp)
@@ -120,7 +173,6 @@ fun PropertyInspector(
                 color = TextSecondary,
                 fontSize = 12.sp
             )
-
             Spacer(modifier = Modifier.height(8.dp))
 
             selectedLayer.effects.forEach { effect ->
@@ -176,14 +228,20 @@ private fun PropertySlider(
     range: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit
 ) {
+    // Keep a local slider state to avoid recomposition jank on fast drags
+    var sliderValue by remember(value) { mutableFloatStateOf(value) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(text = name, color = TextSecondary, fontSize = 11.sp, modifier = Modifier.width(55.dp))
         Slider(
-            value = value,
-            onValueChange = onValueChange,
+            value = sliderValue,
+            onValueChange = {
+                sliderValue = it
+                onValueChange(it)
+            },
             valueRange = range,
             colors = SliderDefaults.colors(
                 thumbColor = NeonCyan,
@@ -193,10 +251,10 @@ private fun PropertySlider(
             modifier = Modifier.weight(1f)
         )
         Text(
-            text = String.format("%.1f", value),
+            text = String.format("%.1f", sliderValue),
             color = TextMuted,
-            fontSize = 11.sp,
-            modifier = Modifier.width(32.dp)
+            fontSize = 10.sp,
+            modifier = Modifier.width(36.dp)
         )
     }
 }

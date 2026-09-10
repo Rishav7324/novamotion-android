@@ -428,7 +428,9 @@ fun StudioWorkspace(
                                         currentPlayheadMs = currentPlayheadMs,
                                         onValueChange = { prop, newVal ->
                                             val layer = selectedLayer ?: return@PropertyInspector
-                                            val updatedTransform = when (prop) {
+                                             val updatedTransform = when (prop) {
+                                                "posX" -> layer.transform.copy(posX = AnimatableProperty(newVal))
+                                                "posY" -> layer.transform.copy(posY = AnimatableProperty(newVal))
                                                 "scale" -> layer.transform.copy(
                                                     scaleX = AnimatableProperty(newVal),
                                                     scaleY = AnimatableProperty(newVal)
