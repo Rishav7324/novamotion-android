@@ -89,4 +89,40 @@ object Shaders {
             fragColor = vec4(col.rgb + glow, col.a);
         }
     """.trimIndent()
+
+    // ─── OES (External / SurfaceTexture) shader — for VIDEO layers ──────────
+    // Uses samplerExternalOES which samples from ExoPlayer's SurfaceTexture.
+    // The texture transform matrix (u_TexMatrix) from SurfaceTexture.getTransformMatrix()
+    // must be applied to correctly map the video frame.
+
+    val VERTEX_QUAD_OES = """#version 300 es
+        #extension GL_OES_EGL_image_external_essl3 : require
+        layout (location = 0) in vec4 a_Position;
+        layout (location = 1) in vec2 a_TexCoord;
+
+        uniform mat4 u_MVPMatrix;
+        uniform mat4 u_TexMatrix;
+        out vec2 v_TexCoord;
+
+        void main() {
+            gl_Position = u_MVPMatrix * a_Position;
+            v_TexCoord = (u_TexMatrix * vec4(a_TexCoord, 0.0, 1.0)).xy;
+        }
+    """.trimIndent()
+
+    val FRAGMENT_OES_VIDEO = """#version 300 es
+        #extension GL_OES_EGL_image_external_essl3 : require
+        precision mediump float;
+
+        in vec2 v_TexCoord;
+        uniform samplerExternalOES u_VideoTexture;
+        uniform float u_Opacity;
+        out vec4 fragColor;
+
+        void main() {
+            vec4 texColor = texture(u_VideoTexture, v_TexCoord);
+            fragColor = vec4(texColor.rgb, texColor.a * u_Opacity);
+        }
+    """.trimIndent()
 }
+

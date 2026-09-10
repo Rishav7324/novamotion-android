@@ -17,6 +17,7 @@ import com.novamotion.core.audio.AudioPlaybackEngine
 import com.novamotion.core.effects.EffectCatalog
 import com.novamotion.core.export.ExportConfiguration
 import com.novamotion.core.export.HardwareVideoEncoder
+import com.novamotion.core.export.MediaStoreExporter
 import com.novamotion.core.model.*
 import com.novamotion.core.project.ProjectManager
 import com.novamotion.core.shape.ShapeType
@@ -541,7 +542,15 @@ fun StudioWorkspace(
                         )
                         viewModel.setExporting(false)
                         if (res.isSuccess) {
-                            viewModel.setExportResult(targetFile.absolutePath)
+                            // Save to system Gallery (visible in Photos/Gallery apps)
+                            val displayName = "NovaMotion_${System.currentTimeMillis()}.mp4"
+                            val galleryUri = MediaStoreExporter.saveToGallery(
+                                context = context,
+                                sourceFile = targetFile,
+                                displayName = displayName
+                            )
+                            // Report gallery URI if saved, else fallback to file path
+                            viewModel.setExportResult(galleryUri?.toString() ?: targetFile.absolutePath)
                         }
                     }
                 }
