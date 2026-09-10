@@ -128,7 +128,8 @@ fun MagneticTimeline(
                         },
                         onLayerTrimHead = { newStartMs, newDurationMs ->
                             onLayerTrimHead?.invoke(layer.id, newStartMs, newDurationMs)
-                        }
+                        },
+                        showWaveforms = showWaveforms
                     )
                 }
             }
@@ -192,7 +193,8 @@ private fun TimelineLayerTrack(
     onClick: () -> Unit,
     onLayerMoved: (newStartMs: Long) -> Unit,
     onLayerTrimmed: (newDurationMs: Long) -> Unit,
-    onLayerTrimHead: (newStartMs: Long, newDurationMs: Long) -> Unit
+    onLayerTrimHead: (newStartMs: Long, newDurationMs: Long) -> Unit,
+    showWaveforms: Boolean = true
 ) {
     val haptic = LocalHapticFeedback.current
 

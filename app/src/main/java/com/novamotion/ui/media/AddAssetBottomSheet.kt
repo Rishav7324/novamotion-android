@@ -78,7 +78,7 @@ fun AddAssetBottomSheet(
                     subtitle = "Pick MP4/MKV video clip from gallery",
                     iconColor = PurpleVideo,
                     onClick = {
-                        videoPickerLauncher.launch("video/*")
+                        videoPickerLauncher.launch(arrayOf("video/*"))
                     }
                 )
 
@@ -88,7 +88,7 @@ fun AddAssetBottomSheet(
                     subtitle = "Pick PNG/JPEG image from gallery",
                     iconColor = NeonCyan,
                     onClick = {
-                        imagePickerLauncher.launch("image/*")
+                        imagePickerLauncher.launch(arrayOf("image/*"))
                     }
                 )
 
@@ -98,7 +98,7 @@ fun AddAssetBottomSheet(
                     subtitle = "Pick MP3/WAV soundtrack from device",
                     iconColor = GreenAudio,
                     onClick = {
-                        audioPickerLauncher.launch("audio/*")
+                        audioPickerLauncher.launch(arrayOf("audio/*"))
                     }
                 )
 

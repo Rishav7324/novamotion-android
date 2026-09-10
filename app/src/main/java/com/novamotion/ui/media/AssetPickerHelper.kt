@@ -28,15 +28,15 @@ object AssetPickerHelper {
                 context.contentResolver.takePersistableUriPermission(uri, takeFlags)
             }
         } catch (ignored: Exception) {
-            // Fallback for GetContent or non-DocumentsProvider: copy to cache for durable access
+            // Fallback for non-DocumentsProvider: copy to cache for durable access (best-effort)
             try {
-                val input = context.contentResolver.openInputStream(uri) ?: return@let
-                val cacheFile = java.io.File(context.cacheDir, "import_${System.currentTimeMillis()}_${uri.lastPathSegment ?: "media"}")
-                input.use { ins ->
-                    cacheFile.outputStream().use { out -> ins.copyTo(out) }
+                val input = context.contentResolver.openInputStream(uri)
+                if (input != null) {
+                    val cacheFile = java.io.File(context.cacheDir, "import_${System.currentTimeMillis()}_${uri.lastPathSegment ?: "media"}")
+                    input.use { ins ->
+                        cacheFile.outputStream().use { out -> ins.copyTo(out) }
+                    }
                 }
-                // Return layer pointing to cache copy if persist failed — caller will use cache URI
-                // Note: we keep original URI if copy fails; upper layer handles fallback texture
             } catch (_: Exception) {}
         }
 
