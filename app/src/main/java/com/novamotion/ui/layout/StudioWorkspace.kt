@@ -112,30 +112,34 @@ fun StudioWorkspace(
     val selectedLayer = currentProject.layers.find { it.id == selectedLayerId }
     val isOnKeyframe = selectedLayer?.transform?.posX?.keyframes?.any { it.timeMs == currentPlayheadMs } == true
 
-    // ─── Audio synchronisation (real MediaPlayer) ───────────────────────────
+    // ─── Audio synchronisation (real MediaPlayer) — supports AUDIO + VIDEO with audio ─────
     val audioEngine = remember { AudioPlaybackEngine(context) }
     DisposableEffect(Unit) { onDispose { audioEngine.release() } }
 
-    val audioLayerUri = currentProject.layers.find { it.type == LayerType.AUDIO && it.mediaUri != null }?.mediaUri
+    // Find first layer that has audio: AUDIO type first, else VIDEO with media
+    val audioLayer = currentProject.layers.firstOrNull { (it.type == LayerType.AUDIO || it.type == LayerType.VIDEO) && it.mediaUri != null }
+    val audioLayerUri = audioLayer?.mediaUri
     LaunchedEffect(audioLayerUri) {
         if (audioLayerUri != null) {
-            audioEngine.loadAudio(audioLayerUri)
+            try { audioEngine.loadAudio(audioLayerUri) } catch (_: Exception) {}
         } else {
-            audioEngine.release()
+            try { audioEngine.release() } catch (_: Exception) {}
         }
     }
 
     LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            audioEngine.play(currentPlayheadMs)
-        } else {
-            audioEngine.pause()
-        }
+        try {
+            if (isPlaying) {
+                audioEngine.play(currentPlayheadMs)
+            } else {
+                audioEngine.pause()
+            }
+        } catch (_: Exception) {}
     }
 
     LaunchedEffect(isPlaying, currentPlayheadMs) {
         if (isPlaying) {
-            audioEngine.correctDriftIfNeeded(currentPlayheadMs)
+            try { audioEngine.correctDriftIfNeeded(currentPlayheadMs) } catch (_: Exception) {}
         }
     }
 
@@ -303,7 +307,7 @@ fun StudioWorkspace(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // ── ZONE 1: Seamless OLED Canvas Viewport (~48%) ─────────────────
+            // ── ZONE 1: Seamless OLED Canvas Viewport (~56%) ─────────────────
             CanvasViewport(
                 project = currentProject,
                 currentPlayheadMs = currentPlayheadMs,
@@ -351,7 +355,7 @@ fun StudioWorkspace(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.48f)
+                    .weight(0.56f)
             )
 
             // ── ZONE 2: Floating Dynamic Glass Island Dock (42dp) ─────────────
@@ -389,11 +393,11 @@ fun StudioWorkspace(
                 onOpenEffects = { viewModel.toggleEffectsSheet(true) }
             )
 
-            // ── ZONE 3: Cupertino Modular Lower Deck (~52%) ───────────────────
+            // ── ZONE 3: Cupertino Modular Lower Deck (~44%) ───────────────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.52f)
+                    .weight(0.44f)
                     .background(IosSecondaryBackground)
             ) {
                 // Cupertino Sliding Segmented Control Bar

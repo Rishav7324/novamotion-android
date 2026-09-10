@@ -8,6 +8,7 @@ composeBom = "2024.08.00"
 materialIconsExtended = "1.6.8"
 coroutines = "1.8.1"
 media3 = "1.4.1"
+exifinterface = "1.3.7"
 junit = "4.13.2"
 
 [libraries]
@@ -26,6 +27,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

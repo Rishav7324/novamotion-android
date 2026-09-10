@@ -27,6 +27,11 @@ object AssetImporter {
     suspend fun importVideo(context: Context, uri: Uri): Layer = withContext(Dispatchers.IO) {
         val metadata = extractMetadata(context, uri)
         val name = uri.lastPathSegment ?: "Video Clip"
+        // Handle video rotation metadata (90/270) — apply to layer transform
+        val videoRotation = metadata.rotation.toFloat()
+        val transform = if (videoRotation != 0f) {
+            LayerTransform(rotation = com.novamotion.core.model.AnimatableProperty(videoRotation))
+        } else LayerTransform()
 
         Layer(
             name = name,
@@ -34,7 +39,7 @@ object AssetImporter {
             startTimeMs = 0L,
             durationMs = metadata.durationMs.coerceAtLeast(1000L),
             mediaUri = uri.toString(),
-            transform = LayerTransform()
+            transform = transform
         )
     }
 

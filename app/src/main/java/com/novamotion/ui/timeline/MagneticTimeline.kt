@@ -135,6 +135,23 @@ fun MagneticTimeline(
             }
         }
 
+        // Auto-scroll timeline to keep playhead visible when playing
+        LaunchedEffect(currentPlayheadMs) {
+            try {
+                val viewportWidthPx = 360.dp.toPx()
+                val playheadPx = currentPlayheadMs * pxPerMs
+                val scrollPx = scrollState.value.toFloat()
+                // Estimate viewport as pxPerMs * duration visible; fallback to viewportWidthPx
+                val viewportEst = try { scrollState.maxValue.toFloat().coerceAtLeast(viewportWidthPx) } catch (_: Exception) { viewportWidthPx }
+                val visibleLeft = scrollPx
+                val visibleRight = scrollPx + viewportEst
+                if (playheadPx < visibleLeft + 40.dp.toPx() || playheadPx > visibleRight - 40.dp.toPx()) {
+                    val target = (playheadPx - 120.dp.toPx()).coerceAtLeast(0f).toInt()
+                    scrollState.animateScrollTo(target)
+                }
+            } catch (_: Exception) {}
+        }
+
         // ── 3. Apple Neon Red Magnetic Playhead Needle (inside scroll, accounts for scroll offset) ───────
         val playheadOffsetPx = currentPlayheadMs * pxPerMs
         val scrollOffsetPx = scrollState.value.toFloat()
@@ -155,19 +172,22 @@ fun MagneticTimeline(
                         onDragStart = { accMs = currentPlayheadMs },
                         onDragEnd = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
                     ) { change, dragAmount ->
-                        change.consume()
-                        val deltaMs = (dragAmount.x / pxPerMs).toLong()
-                        accMs = (accMs + deltaMs).coerceIn(0L, project.durationMs)
-                        var snapped = accMs
-                        if (snapEnabled) {
-                            val snapWindowMs = (8.dp.toPx() / pxPerMs).toLong()
-                            for (layer in project.layers) {
-                                if (kotlin.math.abs(accMs - layer.startTimeMs) < snapWindowMs) snapped = layer.startTimeMs
-                                if (kotlin.math.abs(accMs - layer.endTimeMs) < snapWindowMs) snapped = layer.endTimeMs
+                        try {
+                            change.consume()
+                            if (pxPerMs < 0.001f) return@detectDragGestures
+                            val deltaMs = (dragAmount.x / pxPerMs).toLong()
+                            accMs = (accMs + deltaMs).coerceIn(0L, project.durationMs.coerceAtLeast(1L))
+                            var snapped = accMs
+                            if (snapEnabled) {
+                                val snapWindowMs = (8.dp.toPx() / pxPerMs).toLong().coerceAtLeast(20L)
+                                for (layer in project.layers) {
+                                    if (kotlin.math.abs(accMs - layer.startTimeMs) < snapWindowMs) snapped = layer.startTimeMs
+                                    if (kotlin.math.abs(accMs - layer.endTimeMs) < snapWindowMs) snapped = layer.endTimeMs
+                                }
                             }
-                        }
-                        onSeek(snapped)
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSeek(snapped)
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        } catch (_: Exception) {}
                     }
                 }
         ) {
@@ -208,8 +228,9 @@ private fun TimelineLayerTrack(
         LayerType.NULL_OBJECT -> IosLabelSecondary
     }
 
-    val startOffsetDp = (layer.startTimeMs * pxPerMs).dp
-    val clipWidthDp   = (layer.durationMs * pxPerMs).dp.coerceAtLeast(40.dp)
+    val safePxPerMs = pxPerMs.coerceAtLeast(0.01f)
+    val startOffsetDp = (layer.startTimeMs * safePxPerMs).dp
+    val clipWidthDp   = (layer.durationMs * safePxPerMs).dp.coerceAtLeast(40.dp)
 
     // Accumulated drag delta for clip movement (in pixels)
     var dragAccumPx by remember(layer.id) { mutableFloatStateOf(0f) }
@@ -238,16 +259,20 @@ private fun TimelineLayerTrack(
                 )
                 .clickable { onClick() }
                 // Horizontal drag to reposition clip temporally
-                .pointerInput(layer.id) {
+                .pointerInput(layer.id, safePxPerMs) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            val deltaPx = dragAccumPx
-                            dragAccumPx = 0f
-                            val deltaMs = (deltaPx / pxPerMs).toLong()
-                            val newStart = (layer.startTimeMs + deltaMs).coerceIn(0L, projectDurationMs - layer.durationMs)
-                            onLayerMoved(newStart)
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onClick()
+                            try {
+                                val deltaPx = dragAccumPx
+                                dragAccumPx = 0f
+                                if (safePxPerMs < 0.001f) return@detectHorizontalDragGestures
+                                val deltaMs = (deltaPx / safePxPerMs).toLong()
+                                val maxStart = (projectDurationMs - layer.durationMs).coerceAtLeast(0L)
+                                val newStart = (layer.startTimeMs + deltaMs).coerceIn(0L, maxStart)
+                                onLayerMoved(newStart)
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onClick()
+                            } catch (_: Exception) { dragAccumPx = 0f }
                         },
                         onDragCancel = {
                             dragAccumPx = 0f
@@ -343,15 +368,18 @@ private fun TimelineLayerTrack(
                     .clip(RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp))
                     .background(Color.White.copy(alpha = 0.92f))
                     .border(1.dp, trackAccent, RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp))
-                    .pointerInput(layer.id) {
+                    .pointerInput(layer.id, safePxPerMs) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
-                                val deltaMs = (headDragPx / pxPerMs).toLong()
-                                headDragPx = 0f
-                                val newStart = (layer.startTimeMs + deltaMs).coerceIn(0L, layer.endTimeMs - 500L)
-                                val newDuration = (layer.durationMs - (newStart - layer.startTimeMs)).coerceAtLeast(500L)
-                                onLayerTrimHead(newStart, newDuration)
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                try {
+                                    if (safePxPerMs < 0.001f) { headDragPx = 0f; return@detectHorizontalDragGestures }
+                                    val deltaMs = (headDragPx / safePxPerMs).toLong()
+                                    headDragPx = 0f
+                                    val newStart = (layer.startTimeMs + deltaMs).coerceIn(0L, layer.endTimeMs - 500L)
+                                    val newDuration = (layer.durationMs - (newStart - layer.startTimeMs)).coerceAtLeast(500L)
+                                    onLayerTrimHead(newStart, newDuration)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                } catch (_: Exception) { headDragPx = 0f }
                             },
                             onDragCancel = { headDragPx = 0f }
                         ) { change, dragAmount ->
@@ -373,14 +401,17 @@ private fun TimelineLayerTrack(
                     .clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
                     .background(Color.White)
                     .border(1.dp, trackAccent, RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
-                    .pointerInput(layer.id) {
+                    .pointerInput(layer.id, safePxPerMs) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
-                                val deltaMs = (tailDragPx / pxPerMs).toLong()
-                                tailDragPx = 0f
-                                val newDuration = (layer.durationMs + deltaMs).coerceAtLeast(500L)
-                                onLayerTrimmed(newDuration)
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                try {
+                                    if (safePxPerMs < 0.001f) { tailDragPx = 0f; return@detectHorizontalDragGestures }
+                                    val deltaMs = (tailDragPx / safePxPerMs).toLong()
+                                    tailDragPx = 0f
+                                    val newDuration = (layer.durationMs + deltaMs).coerceAtLeast(500L)
+                                    onLayerTrimmed(newDuration)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                } catch (_: Exception) { tailDragPx = 0f }
                             },
                             onDragCancel = { tailDragPx = 0f }
                         ) { change, dragAmount ->

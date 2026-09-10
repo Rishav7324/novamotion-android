@@ -92,9 +92,36 @@ object ImageTextureLoader {
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
         // Need fresh stream for second decode (inputStream is consumed)
-        return context.contentResolver.openInputStream(uri)?.use { stream ->
+        var bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
             BitmapFactory.decodeStream(stream, null, decodeOptions)
-        }
+        } ?: return null
+        // Fix EXIF rotation (photo ulta) — read orientation and rotate bitmap
+        try {
+            context.contentResolver.openInputStream(uri)?.use { exifStream ->
+                val exif = androidx.exifinterface.media.ExifInterface(exifStream)
+                val orientation = exif.getAttributeInt(
+                    androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
+                )
+                val matrix = android.graphics.Matrix()
+                when (orientation) {
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+                    else -> {}
+                }
+                if (!matrix.isIdentity) {
+                    val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                    if (rotated != bitmap) {
+                        bitmap.recycle()
+                        bitmap = rotated
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return bitmap
     }
 
     private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {

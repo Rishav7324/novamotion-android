@@ -31,7 +31,10 @@ class AudioPlaybackEngine(private val context: Context) {
                 setDataSource(context, Uri.parse(uriString))
                 prepare()
                 isPrepared = true
+                // Ensure volume max
+                setVolume(1f, 1f)
             }
+            Log.i(TAG, "Audio loaded: $uriString isPrepared=$isPrepared")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load audio: $uriString", e)
             mediaPlayer = null

@@ -102,6 +102,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 
+    // ExifInterface — fix photo ulta (EXIF rotation)
+    implementation(libs.androidx.exifinterface)
+
     // Unit tests
     testImplementation(libs.junit)
     debugImplementation(libs.androidx.compose.ui.tooling)
