@@ -69,35 +69,35 @@ fun PropertyInspector(
         modifier = modifier
             .fillMaxWidth()
             .background(IosSecondaryBackground)
-            .padding(12.dp)
+            .padding(8.dp)
             .verticalScroll(rememberScrollState())
     ) {
         // ── 1. Layer Header Glass Pill ──────────────────────────────────────
         GlassmorphicCard(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(12.dp),
             backgroundColor = IosGlassSurface,
             borderBrush = IosGlassBorder,
-            elevation = 4.dp
+            elevation = 3.dp
         ) {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
                 Column {
                     Text(
                         text = selectedLayer.name,
                         color = IosLabelPrimary,
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         text = "${selectedLayer.type.label} • ${selectedLayer.durationMs / 1000.0f}s",
                         color = IosLabelSecondary,
-                        fontSize = 11.sp
+                        fontSize = 10.sp
                     )
                 }
 
@@ -105,28 +105,28 @@ fun PropertyInspector(
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(
                             Brush.linearGradient(
                                 listOf(IosPurple, IosIndigo)
                             )
                         )
-                        .border(0.75.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(14.dp))
+                        .border(0.75.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(10.dp))
                         .iosSpringClick { onAddEffectClick() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.AutoFixHigh,
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier.size(11.dp)
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Add VFX",
                             color = Color.White,
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -134,31 +134,31 @@ fun PropertyInspector(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // ── 2. Transform Section: Control Center Sliders & Jog Wheel ─────────
         Text(
             text = "TRANSFORM CONTROLS",
             color = IosLabelSecondary,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier.padding(start = 4.dp)
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         GlassmorphicCard(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(12.dp),
             backgroundColor = IosGlassSurface,
             borderBrush = IosGlassBorder,
-            elevation = 6.dp
+            elevation = 4.dp
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp)
+                    .padding(10.dp)
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     IosControlCenterSlider(
@@ -199,7 +199,7 @@ fun PropertyInspector(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
                 // Apple Watch Jog Wheel Hub
                 Column(
@@ -207,11 +207,11 @@ fun PropertyInspector(
                     verticalArrangement = Arrangement.Center
                 ) {
                     JogWheel(onStep = { delta -> onValueChange("jog", delta) })
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = "X Nudge",
                         color = IosLabelSecondary,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -221,17 +221,17 @@ fun PropertyInspector(
         // ── 3. Keyframe Diamond Status ──────────────────────────────────────
         val kfCount = selectedLayer.transform.posX.keyframes.size
         if (kfCount > 0) {
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(start = 6.dp)
             ) {
-                Text(text = "◆", color = IosCyan, fontSize = 13.sp)
-                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = "◆", color = IosCyan, fontSize = 11.sp)
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "$kfCount keyframe${if (kfCount != 1) "s" else ""} on Pos X",
                     color = IosCyan,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -239,28 +239,28 @@ fun PropertyInspector(
 
         // ── 4. Applied Effects Stack ─────────────────────────────────────────
         if (selectedLayer.effects.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "APPLIED EFFECTS (${selectedLayer.effects.size})",
                 color = IosLabelSecondary,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = FontFamily.Monospace,
                 modifier = Modifier.padding(start = 4.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             selectedLayer.effects.forEach { effect ->
                 GlassmorphicCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    shape = RoundedCornerShape(14.dp),
+                        .padding(vertical = 3.dp),
+                    shape = RoundedCornerShape(10.dp),
                     backgroundColor = IosTertiaryBackground,
                     borderBrush = if (effect.isEnabled) IosActiveGlowBorder else IosGlassBorder,
-                    elevation = 4.dp
+                    elevation = 3.dp
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(8.dp)) {
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
@@ -269,21 +269,21 @@ fun PropertyInspector(
                             Text(
                                 text = effect.type.displayName,
                                 color = if (effect.isEnabled) IosCyan else IosLabelSecondary,
-                                fontSize = 13.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(6.dp))
                                     .background(if (effect.isEnabled) IosCyan.copy(alpha = 0.2f) else Color(0x33000000))
-                                    .border(0.5.dp, if (effect.isEnabled) IosCyan else Color(0x26FFFFFF), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    .border(0.5.dp, if (effect.isEnabled) IosCyan else Color(0x26FFFFFF), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 6.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = if (effect.isEnabled) "ACTIVE" else "OFF",
                                     color = if (effect.isEnabled) IosCyan else IosLabelTertiary,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -291,7 +291,7 @@ fun PropertyInspector(
 
                         // Effect parameters
                         effect.parameters.values.forEach { param ->
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             IosControlCenterSlider(
                                 name = param.name,
                                 value = param.value,
@@ -326,14 +326,14 @@ private fun IosControlCenterSlider(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp)
+            .padding(vertical = 2.dp)
     ) {
         Text(
             text = name,
             color = IosLabelSecondary,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(52.dp)
+            modifier = Modifier.width(44.dp)
         )
 
         Slider(
@@ -348,24 +348,24 @@ private fun IosControlCenterSlider(
                 activeTrackColor = IosIndigo,
                 inactiveTrackColor = Color(0x33FFFFFF)
             ),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).height(20.dp)
         )
 
         // Monospace numeric input display pill
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .width(46.dp)
-                .height(24.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .width(40.dp)
+                .height(20.dp)
+                .clip(RoundedCornerShape(5.dp))
                 .background(Color(0x33000000))
-                .border(0.5.dp, Color(0x1AFFFFFF), RoundedCornerShape(6.dp))
+                .border(0.5.dp, Color(0x1AFFFFFF), RoundedCornerShape(5.dp))
         ) {
             val displayNum = sliderValue * multiplier
             Text(
                 text = String.format("%.1f", displayNum) + unit,
                 color = IosLabelPrimary,
-                fontSize = 10.sp,
+                fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Medium
             )

@@ -47,10 +47,14 @@ fun MagneticTimeline(
     onSeek: (Long) -> Unit,
     onLayerMoved: ((layerId: String, newStartMs: Long) -> Unit)? = null,
     onLayerTrimmed: ((layerId: String, newDurationMs: Long) -> Unit)? = null,
+    onLayerTrimHead: ((layerId: String, newStartMs: Long, newDurationMs: Long) -> Unit)? = null,
+    pxPerMs: Float = 0.1f,
+    snapEnabled: Boolean = true,
+    showWaveforms: Boolean = true,
+    onZoomChange: ((Float) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
-    val pxPerMs = 0.1f // 100px per second
     val haptic = LocalHapticFeedback.current
 
     Box(
@@ -67,13 +71,13 @@ fun MagneticTimeline(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(28.dp)
+                    .height(20.dp)
                     .background(Color(0x66141416))
                     .border(width = 0.5.dp, brush = IosGlassBorder, shape = RectangleShape)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(start = 12.dp)
+                    modifier = Modifier.padding(start = 8.dp)
                 ) {
                     val stepSec = 1
                     val maxSec = (project.durationMs / 1000).toInt().coerceAtLeast(1)
@@ -86,14 +90,14 @@ fun MagneticTimeline(
                             Box(
                                 modifier = Modifier
                                     .width(1.dp)
-                                    .height(10.dp)
+                                    .height(7.dp)
                                     .background(Color(0x33FFFFFF))
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = label,
                                 color = IosLabelTertiary,
-                                fontSize = 10.sp,
+                                fontSize = 8.sp,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Medium
                             )
@@ -106,8 +110,8 @@ fun MagneticTimeline(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 for (layer in project.layers) {
                     TimelineLayerTrack(
@@ -121,17 +125,22 @@ fun MagneticTimeline(
                         },
                         onLayerTrimmed = { newDurationMs ->
                             onLayerTrimmed?.invoke(layer.id, newDurationMs)
+                        },
+                        onLayerTrimHead = { newStartMs, newDurationMs ->
+                            onLayerTrimHead?.invoke(layer.id, newStartMs, newDurationMs)
                         }
                     )
                 }
             }
         }
 
-        // ── 3. Apple Neon Red Magnetic Playhead Needle ───────────────────────
-        val playheadOffsetDp = (currentPlayheadMs * pxPerMs).dp
+        // ── 3. Apple Neon Red Magnetic Playhead Needle (inside scroll, accounts for scroll offset) ───────
+        val playheadOffsetPx = currentPlayheadMs * pxPerMs
+        val scrollOffsetPx = scrollState.value.toFloat()
+        val playheadVisibleX = (playheadOffsetPx - scrollOffsetPx).dp
         Box(
             modifier = Modifier
-                .offset(x = playheadOffsetDp)
+                .offset(x = playheadVisibleX)
                 .width(2.dp)
                 .fillMaxHeight()
                 .background(
@@ -139,12 +148,24 @@ fun MagneticTimeline(
                         listOf(IosRed, IosRed.copy(alpha = 0.85f))
                     )
                 )
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
+                .pointerInput(currentPlayheadMs, project.durationMs, snapEnabled, pxPerMs) {
+                    var accMs = currentPlayheadMs
+                    detectDragGestures(
+                        onDragStart = { accMs = currentPlayheadMs },
+                        onDragEnd = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
+                    ) { change, dragAmount ->
                         change.consume()
                         val deltaMs = (dragAmount.x / pxPerMs).toLong()
-                        val newTime = (currentPlayheadMs + deltaMs).coerceIn(0L, project.durationMs)
-                        onSeek(newTime)
+                        accMs = (accMs + deltaMs).coerceIn(0L, project.durationMs)
+                        var snapped = accMs
+                        if (snapEnabled) {
+                            val snapWindowMs = (8.dp.toPx() / pxPerMs).toLong()
+                            for (layer in project.layers) {
+                                if (kotlin.math.abs(accMs - layer.startTimeMs) < snapWindowMs) snapped = layer.startTimeMs
+                                if (kotlin.math.abs(accMs - layer.endTimeMs) < snapWindowMs) snapped = layer.endTimeMs
+                            }
+                        }
+                        onSeek(snapped)
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     }
                 }
@@ -170,7 +191,8 @@ private fun TimelineLayerTrack(
     projectDurationMs: Long,
     onClick: () -> Unit,
     onLayerMoved: (newStartMs: Long) -> Unit,
-    onLayerTrimmed: (newDurationMs: Long) -> Unit
+    onLayerTrimmed: (newDurationMs: Long) -> Unit,
+    onLayerTrimHead: (newStartMs: Long, newDurationMs: Long) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -193,7 +215,7 @@ private fun TimelineLayerTrack(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(34.dp)
     ) {
         // ── Clip Body (iOS Liquid Glass Squircle Card) ───────────────────────
         Box(
@@ -201,16 +223,16 @@ private fun TimelineLayerTrack(
                 .offset(x = startOffsetDp + dragAccumPx.dp)
                 .width(clipWidthDp)
                 .fillMaxHeight()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(7.dp))
                 .background(
                     if (isSelected) trackAccent.copy(alpha = 0.35f) else Color(0x331C1C1E)
                 )
                 .border(
-                    width = if (isSelected) 1.5.dp else 1.dp,
+                    width = if (isSelected) 1.dp else 0.75.dp,
                     brush = if (isSelected) IosActiveGlowBorder else Brush.verticalGradient(
                         listOf(trackAccent.copy(alpha = 0.7f), Color(0x1AFFFFFF))
                     ),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(7.dp)
                 )
                 .clickable { onClick() }
                 // Horizontal drag to reposition clip temporally
@@ -233,25 +255,22 @@ private fun TimelineLayerTrack(
                         dragAccumPx += dragAmount
                     }
                 }
-                .padding(horizontal = 10.dp),
+                .padding(horizontal = 6.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            // Audio track visual waveform gradient
-            if (layer.type == LayerType.AUDIO) {
-                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                    val barSpacing = 4.dp.toPx()
-                    val barWidth = 2.dp.toPx()
-                    val numBars = (size.width / barSpacing).toInt()
-                    val midY = size.height / 2f
-                    for (i in 0 until numBars) {
-                        val norm = kotlin.math.sin(i * 0.35f) * 0.5f + kotlin.math.cos(i * 0.18f) * 0.4f
-                        val barHeight = (size.height * 0.75f * kotlin.math.abs(norm)).coerceAtLeast(4f)
-                        drawRect(
-                            color = IosGreen.copy(alpha = 0.55f),
-                            topLeft = androidx.compose.ui.geometry.Offset(i * barSpacing, midY - barHeight / 2f),
-                            size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
-                        )
-                    }
+            // Audio track visual placeholder — real waveform via WaveformExtractor when available
+            if (showWaveforms && layer.type == LayerType.AUDIO) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "AUDIO",
+                        color = IosGreen.copy(alpha = 0.5f),
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
             }
 
@@ -260,10 +279,10 @@ private fun TimelineLayerTrack(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Layer name + type icon
+                // Layer name + type icon (+ HOLD indicator)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     val icon = when (layer.type) {
                         LayerType.VIDEO  -> Icons.Default.Videocam
@@ -277,12 +296,12 @@ private fun TimelineLayerTrack(
                         icon,
                         contentDescription = null,
                         tint = trackAccent,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                     Text(
                         text = layer.name,
                         color = IosLabelPrimary,
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1
                     )
@@ -297,12 +316,12 @@ private fun TimelineLayerTrack(
                             .clip(RoundedCornerShape(6.dp))
                             .background(IosCyan.copy(alpha = 0.2f))
                             .border(0.5.dp, IosCyan, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                            .padding(horizontal = 3.dp, vertical = 1.dp)
                     ) {
                         Text(
                             text = "◆$kfCount",
                             color = IosCyan,
-                            fontSize = 9.sp,
+                            fontSize = 7.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -310,33 +329,61 @@ private fun TimelineLayerTrack(
             }
         }
 
-        // ── Right Edge Trim Handle ───────────────────────────────────────────
+        // ── Left Edge Head-Trim Handle + Right Edge Tail Handle ────────────────
         if (isSelected) {
-            var trimDragPx by remember(layer.id) { mutableFloatStateOf(0f) }
+            // Left (head) handle: trims in-point, moves start forward/backward
+            var headDragPx by remember(layer.id) { mutableFloatStateOf(0f) }
             Box(
                 modifier = Modifier
-                    .offset(
-                        x = startOffsetDp + clipWidthDp - 12.dp + trimDragPx.dp,
-                        y = 4.dp
-                    )
-                    .width(12.dp)
-                    .height(36.dp)
-                    .clip(RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp))
-                    .background(Color.White)
-                    .border(1.dp, trackAccent, RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp))
+                    .offset(x = startOffsetDp + headDragPx.dp, y = 3.dp)
+                    .width(9.dp)
+                    .height(28.dp)
+                    .clip(RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp))
+                    .background(Color.White.copy(alpha = 0.92f))
+                    .border(1.dp, trackAccent, RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp))
                     .pointerInput(layer.id) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
-                                val deltaMs = (trimDragPx / pxPerMs).toLong()
-                                trimDragPx = 0f
+                                val deltaMs = (headDragPx / pxPerMs).toLong()
+                                headDragPx = 0f
+                                val newStart = (layer.startTimeMs + deltaMs).coerceIn(0L, layer.endTimeMs - 500L)
+                                val newDuration = (layer.durationMs - (newStart - layer.startTimeMs)).coerceAtLeast(500L)
+                                onLayerTrimHead(newStart, newDuration)
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            },
+                            onDragCancel = { headDragPx = 0f }
+                        ) { change, dragAmount ->
+                            change.consume()
+                            headDragPx += dragAmount
+                        }
+                    }
+            )
+            // Right (tail) handle
+            var tailDragPx by remember(layer.id) { mutableFloatStateOf(0f) }
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = startOffsetDp + clipWidthDp - 9.dp + tailDragPx.dp,
+                        y = 3.dp
+                    )
+                    .width(9.dp)
+                    .height(28.dp)
+                    .clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
+                    .background(Color.White)
+                    .border(1.dp, trackAccent, RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
+                    .pointerInput(layer.id) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                val deltaMs = (tailDragPx / pxPerMs).toLong()
+                                tailDragPx = 0f
                                 val newDuration = (layer.durationMs + deltaMs).coerceAtLeast(500L)
                                 onLayerTrimmed(newDuration)
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             },
-                            onDragCancel = { trimDragPx = 0f }
+                            onDragCancel = { tailDragPx = 0f }
                         ) { change, dragAmount ->
                             change.consume()
-                            trimDragPx += dragAmount
+                            tailDragPx += dragAmount
                         }
                     }
             )

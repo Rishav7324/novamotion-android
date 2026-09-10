@@ -20,6 +20,7 @@
     <!-- Foreground service for long-running exports -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Haptics -->
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -55,6 +56,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_provider_paths" />
         </provider>
+
+        <!-- Foreground service for export (dataSync type, 6h limit on Android 15+) -->
+        <service
+            android:name=".core.export.ExportForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
     </application>
 

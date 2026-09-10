@@ -41,8 +41,8 @@ fun JogWheel(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(76.dp)
-            .shadow(6.dp, CircleShape)
+            .size(64.dp)
+            .shadow(4.dp, CircleShape)
             .clip(CircleShape)
             .background(
                 Brush.radialGradient(
@@ -100,7 +100,7 @@ fun JogWheel(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(34.dp)
+                .size(28.dp)
                 .clip(CircleShape)
                 .background(Color(0x66141416))
                 .border(0.75.dp, IosGlassBorder, CircleShape)
@@ -108,7 +108,7 @@ fun JogWheel(
             Text(
                 text = "JOG",
                 color = IosCyan,
-                fontSize = 9.sp,
+                fontSize = 8.sp,
                 fontWeight = FontWeight.Bold
             )
         }

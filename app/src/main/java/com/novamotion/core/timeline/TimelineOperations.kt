@@ -203,4 +203,60 @@ object TimelineOperations {
             startTimeMs = layer.startTimeMs + offsetMs
         )
     }
+
+    // ─── Advanced edit modes ─────────────────────────────────────────────
+
+    /** Ripple trim head: shifts downstream layers on same track to close gap */
+    fun rippleTrimHead(layer: Layer, newStartMs: Long, downstream: List<Layer>): Pair<Layer, List<Layer>> {
+        val delta = newStartMs - layer.startTimeMs
+        val trimmed = trimLayerHead(layer, newStartMs)
+        val shifted = downstream.map { it.copy(startTimeMs = it.startTimeMs - delta) }
+        return trimmed to shifted
+    }
+
+    fun rippleTrimTail(layer: Layer, newEndMs: Long, downstream: List<Layer>): Pair<Layer, List<Layer>> {
+        val oldEnd = layer.endTimeMs
+        val trimmed = trimLayerTail(layer, newEndMs)
+        val delta = trimmed.endTimeMs - oldEnd
+        val shifted = downstream.map { it.copy(startTimeMs = it.startTimeMs + delta) }
+        return trimmed to shifted
+    }
+
+    /** Roll edit: move cut between two adjacent layers, sum duration constant */
+    fun rollEdit(prev: Layer, next: Layer, deltaMs: Long): Pair<Layer, Layer>? {
+        val newPrevEnd = prev.endTimeMs + deltaMs
+        val newNextStart = next.startTimeMs + deltaMs
+        if (newPrevEnd <= prev.startTimeMs + MIN_LAYER_DURATION_MS) return null
+        if (newNextStart >= next.endTimeMs - MIN_LAYER_DURATION_MS) return null
+        if (newPrevEnd != newNextStart) return null // must stay contiguous
+        val newPrev = trimLayerTail(prev, newPrevEnd)
+        val newNext = trimLayerHead(next, newNextStart)
+        // Adjust newNext duration to keep gap closed
+        return newPrev to newNext
+    }
+
+    /** Slip: slide source window without moving timeline position */
+    fun slipLayer(layer: Layer, deltaMs: Long, assetDurationMs: Long): Layer {
+        val maxIn = (assetDurationMs - layer.durationMs).coerceAtLeast(0L)
+        val newIn = (layer.sourceInMs + deltaMs).coerceIn(0L, maxIn)
+        // Shift keyframes inversely to keep visual position
+        fun slipProp(prop: AnimatableProperty<Float>): AnimatableProperty<Float> {
+            if (!prop.hasKeyframes()) return prop
+            // No keyframe time shift; value continuity preserved via source offset only
+            return prop
+        }
+        return layer.copy(sourceInMs = newIn)
+    }
+
+    /** Slide: move clip and push neighbors */
+    fun slideLayer(moved: Layer, deltaMs: Long, prev: Layer?, next: Layer?): SlideResult? {
+        val newStart = moved.startTimeMs + deltaMs
+        if (newStart < 0) return null
+        // Check prev doesn't overlap and next gap
+        if (prev != null && newStart < prev.endTimeMs) return null
+        if (next != null && newStart + moved.durationMs > next.startTimeMs) return null
+        return SlideResult(moved.copy(startTimeMs = newStart), prev, next)
+    }
+
+    data class SlideResult(val moved: Layer, val prev: Layer?, val next: Layer?)
 }

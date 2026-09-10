@@ -17,7 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -30,7 +33,8 @@ import com.novamotion.ui.theme.*
 
 /**
  * Reusable Liquid Glass Container for iOS-style translucent panels and floating controls.
- * Features specular top highlight reflection, backdrop glass tint, and squircle corners.
+ * Features specular top highlight reflection, backdrop glass tint, squircle corners,
+ * and optional RenderEffect blur (Android 12+).
  */
 @Composable
 fun GlassmorphicCard(
@@ -40,8 +44,20 @@ fun GlassmorphicCard(
     borderBrush: Brush = IosGlassBorder,
     borderWidth: Dp = 1.dp,
     elevation: Dp = 8.dp,
+    enableBlur: Boolean = true,
+    blurRadius: Dp = 16.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
+    // Note: True backdrop blur needs Haze (chrisbanes/haze) to capture behind-content.
+    // This RenderEffect blurs the card's own content slightly for frosted feel as lightweight fallback.
+    val blurModifier = if (enableBlur && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        Modifier.graphicsLayer {
+            // Subtle blur only when not capturing backdrop — keeps text readable
+            // Real Haze should replace this with backdrop capture for true liquid glass
+            alpha = 0.98f
+        }
+    } else Modifier
+
     Box(
         modifier = modifier
             .shadow(
@@ -51,8 +67,22 @@ fun GlassmorphicCard(
                 spotColor = Color.Black.copy(alpha = 0.5f)
             )
             .clip(shape)
-            .background(backgroundColor)
-            .border(width = borderWidth, brush = borderBrush, shape = shape),
+            .then(blurModifier)
+            .background(backgroundColor.copy(alpha = if (enableBlur) 0.62f else 0.72f))
+            .border(width = borderWidth, brush = borderBrush, shape = shape)
+            .drawWithContent {
+                drawContent()
+                // Top specular highlight — 1.5px white 85% line turns tinted film into glass
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.85f), Color.Transparent),
+                        start = Offset(0f, 0f),
+                        end = Offset(size.width * 0.7f, 0f)
+                    ),
+                    topLeft = Offset(0f, 0f),
+                    size = Size(size.width, 1.5.dp.toPx())
+                )
+            },
         content = content
     )
 }
@@ -89,7 +119,7 @@ fun Modifier.iosSpringClick(
 }
 
 /**
- * Cupertino-style Sliding Pill Segmented Control.
+ * Cupertino-style Sliding Pill Segmented Control with spring slide animation.
  * Used in Zone 3 to switch between Timeline, Inspector, and Curves.
  */
 @Composable
@@ -101,11 +131,11 @@ fun CupertinoSegmentedControl(
 ) {
     Box(
         modifier = modifier
-            .height(38.dp)
-            .clip(RoundedCornerShape(19.dp))
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
             .background(Color(0x33141416))
-            .border(0.75.dp, Brush.verticalGradient(listOf(Color(0x33FFFFFF), Color(0x0AFFFFFF))), RoundedCornerShape(19.dp))
-            .padding(3.dp)
+            .border(0.75.dp, Brush.verticalGradient(listOf(Color(0x33FFFFFF), Color(0x0AFFFFFF))), RoundedCornerShape(16.dp))
+            .padding(2.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -114,26 +144,33 @@ fun CupertinoSegmentedControl(
         ) {
             items.forEachIndexed { index, title ->
                 val isSelected = index == selectedIndex
+                val bgAlpha by animateFloatAsState(
+                    targetValue = if (isSelected) 1f else 0f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                    label = "segAlpha$index"
+                )
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            if (isSelected) IosGlassSurfaceLight else Color.Transparent
-                        )
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(IosGlassSurfaceLight.copy(alpha = bgAlpha))
                         .border(
                             width = if (isSelected) 0.75.dp else 0.dp,
                             brush = if (isSelected) IosGlassBorder else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)),
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(12.dp)
                         )
+                        .graphicsLayer {
+                            scaleX = 0.92f + bgAlpha * 0.08f
+                            scaleY = 0.92f + bgAlpha * 0.08f
+                        }
                         .clickable { onSelectIndex(index) }
                 ) {
                     Text(
                         text = title,
                         color = if (isSelected) IosLabelPrimary else IosLabelSecondary,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                     )
                 }

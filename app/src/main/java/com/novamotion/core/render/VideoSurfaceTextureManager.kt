@@ -44,7 +44,11 @@ class VideoSurfaceTextureManager(
     private var surface: Surface? = null
 
     private var player: ExoPlayer? = null
-    private var isPlayerReady = false
+    var isPlayerReady = false
+        private set
+
+    var lastSeekMs: Long = -1L
+        private set
 
     /**
      * Must be called from the GL thread after an EGL context is active.
@@ -116,11 +120,24 @@ class VideoSurfaceTextureManager(
         surfaceTexture?.getTransformMatrix(out)
     }
 
-    /** Seek ExoPlayer to the given position in milliseconds. */
+    /** Seek ExoPlayer to the given position in milliseconds. Tracks lastSeekMs for throttling. */
     fun seekTo(positionMs: Long) {
+        lastSeekMs = positionMs
         scope.launch {
             player?.seekTo(positionMs)
         }
+    }
+
+    /** Enable/disable scrubbing mode for frequent seeks (timeline dragging). */
+    fun setScrubbingMode(enabled: Boolean) {
+        // ExoPlayer 1.4.1+ supports setScrubbingModeEnabled for optimized frequent seeking
+        try {
+            val p = player
+            if (p != null) {
+                val method = p.javaClass.getMethod("setScrubbingModeEnabled", Boolean::class.java)
+                method.invoke(p, enabled)
+            }
+        } catch (_: Exception) {}
     }
 
     /** Start ExoPlayer playback. */

@@ -53,46 +53,46 @@ fun QuickActionDock(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
         GlassmorphicCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(27.dp),
+                .height(42.dp),
+            shape = RoundedCornerShape(21.dp),
             backgroundColor = IosGlassSurface,
             borderBrush = IosGlassBorder,
-            elevation = 12.dp
+            elevation = 8.dp
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 10.dp)
+                    .padding(horizontal = 6.dp)
             ) {
                 // ── 1. Cupertino Timecode Pill & Frame Stepper ────────────────────
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color(0x33000000))
-                        .border(0.5.dp, Color(0x1AFFFFFF), RoundedCornerShape(16.dp))
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                        .border(0.5.dp, Color(0x1AFFFFFF), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 3.dp, vertical = 1.dp)
                 ) {
                     IconButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onStepFrame(-1)
                         },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.NavigateBefore,
                             contentDescription = "Previous Frame",
                             tint = IosLabelSecondary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
 
@@ -101,10 +101,10 @@ fun QuickActionDock(
                     Text(
                         text = String.format("%02d:%02d", seconds, frames),
                         color = IosLabelPrimary,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = 2.dp)
+                        modifier = Modifier.padding(horizontal = 1.dp)
                     )
 
                     IconButton(
@@ -112,13 +112,13 @@ fun QuickActionDock(
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onStepFrame(1)
                         },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.NavigateNext,
                             contentDescription = "Next Frame",
                             tint = IosLabelSecondary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -126,13 +126,13 @@ fun QuickActionDock(
                 // ── 2. Central Transport: Spring Play/Pause & Dynamic Keyframe Diamond
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Central Circular Play / Pause Button with Spring physics
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(30.dp)
                             .clip(CircleShape)
                             .background(
                                 Brush.linearGradient(
@@ -149,7 +149,7 @@ fun QuickActionDock(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = "Play/Pause",
                             tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
 
@@ -163,32 +163,32 @@ fun QuickActionDock(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .height(34.dp)
-                            .clip(RoundedCornerShape(17.dp))
+                            .height(26.dp)
+                            .clip(RoundedCornerShape(13.dp))
                             .background(diamondBgColor)
                             .border(
                                 width = 1.dp,
                                 brush = if (isOnKeyframe) IosActiveGlowBorder else IosGlassBorder,
-                                shape = RoundedCornerShape(17.dp)
+                                shape = RoundedCornerShape(13.dp)
                             )
                             .iosSpringClick {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onToggleKeyframe()
                             }
-                            .padding(horizontal = 10.dp)
+                            .padding(horizontal = 6.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = if (isOnKeyframe) "◆" else "◇",
                                 color = if (isOnKeyframe) IosCyan else IosLabelSecondary,
-                                fontSize = 15.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = if (isOnKeyframe) "Key" else "+Key",
                                 color = if (isOnKeyframe) IosCyan else IosLabelSecondary,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -206,13 +206,13 @@ fun QuickActionDock(
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onCutClip()
                         },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.ContentCut,
                             contentDescription = "Cut",
                             tint = IosLabelSecondary,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
 
@@ -223,22 +223,22 @@ fun QuickActionDock(
                             onToggleCurveGraph()
                         },
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(26.dp)
                             .background(
                                 if (showCurveGraph) IosIndigo.copy(alpha = 0.35f) else Color.Transparent,
-                                RoundedCornerShape(10.dp)
+                                RoundedCornerShape(8.dp)
                             )
                             .border(
                                 width = if (showCurveGraph) 1.dp else 0.dp,
                                 brush = if (showCurveGraph) IosGlassBorder else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)),
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(8.dp)
                             )
                     ) {
                         Icon(
                             imageVector = Icons.Default.ShowChart,
                             contentDescription = "Curve Graph",
                             tint = if (showCurveGraph) IosCyan else IosLabelSecondary,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
 
@@ -248,13 +248,13 @@ fun QuickActionDock(
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onOpenEffects()
                         },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.AutoFixHigh,
                             contentDescription = "Effects",
                             tint = IosLabelSecondary,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
 
@@ -264,13 +264,13 @@ fun QuickActionDock(
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onUndo()
                         },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Undo,
                             contentDescription = "Undo",
                             tint = IosLabelTertiary,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 }

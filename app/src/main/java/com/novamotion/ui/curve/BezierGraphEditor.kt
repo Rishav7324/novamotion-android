@@ -54,7 +54,7 @@ fun BezierGraphEditor(
         modifier = modifier
             .fillMaxWidth()
             .background(IosSecondaryBackground)
-            .padding(14.dp)
+            .padding(10.dp)
     ) {
         // Top Header
         Row(
@@ -65,45 +65,63 @@ fun BezierGraphEditor(
             Text(
                 text = "BÉZIER TIMING CURVE",
                 color = IosLabelSecondary,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = FontFamily.Monospace
             )
             IconButton(
                 onClick = onClose,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(28.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close Curve",
                     tint = IosLabelSecondary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(14.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         // Interactive Bézier Curve Glass Canvas
         GlassmorphicCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp),
-            shape = RoundedCornerShape(16.dp),
+                .height(110.dp),
+            shape = RoundedCornerShape(12.dp),
             backgroundColor = IosSystemBackground,
             borderBrush = IosGlassBorder,
-            elevation = 6.dp
+            elevation = 4.dp
         ) {
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp)
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
+                    .padding(12.dp)
+                    .pointerInput(p1, p2) {
+                        var draggingP1 = false
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                val w = size.width
+                                val h = size.height
+                                val h1 = Offset(p1.x * w, h - (p1.y * h))
+                                val h2 = Offset(p2.x * w, h - (p2.y * h))
+                                // Pick closest handle within 48dp radius
+                                val d1 = (offset - h1).getDistance()
+                                val d2 = (offset - h2).getDistance()
+                                draggingP1 = d1 < d2
+                            }
+                        ) { change, dragAmount ->
                             change.consume()
-                            val newX = (p2.x + dragAmount.x / size.width).coerceIn(0f, 1f)
-                            val newY = (p2.y - dragAmount.y / size.height).coerceIn(-0.5f, 1.5f)
-                            p2 = Offset(newX, newY)
+                            if (draggingP1) {
+                                val newX = (p1.x + dragAmount.x / size.width).coerceIn(0f, 1f)
+                                val newY = (p1.y - dragAmount.y / size.height).coerceIn(-0.5f, 1.5f)
+                                p1 = Offset(newX, newY)
+                            } else {
+                                val newX = (p2.x + dragAmount.x / size.width).coerceIn(0f, 1f)
+                                val newY = (p2.y - dragAmount.y / size.height).coerceIn(-0.5f, 1.5f)
+                                p2 = Offset(newX, newY)
+                            }
                             onCurveChanged(BezierControlPoints(p1.x, p1.y, p2.x, p2.y))
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
@@ -127,11 +145,11 @@ fun BezierGraphEditor(
                 drawLine(IosCyan.copy(alpha = 0.6f), end, handle2, strokeWidth = 1.5.dp.toPx())
 
                 // Tangent control pins
-                drawCircle(IosPurple, radius = 7.dp.toPx(), center = handle1)
-                drawCircle(Color.White, radius = 3.dp.toPx(), center = handle1)
+                drawCircle(IosPurple, radius = 5.dp.toPx(), center = handle1)
+                drawCircle(Color.White, radius = 2.dp.toPx(), center = handle1)
 
-                drawCircle(IosCyan, radius = 7.dp.toPx(), center = handle2)
-                drawCircle(Color.White, radius = 3.dp.toPx(), center = handle2)
+                drawCircle(IosCyan, radius = 5.dp.toPx(), center = handle2)
+                drawCircle(Color.White, radius = 2.dp.toPx(), center = handle2)
 
                 // Draw Glowing Bézier Curve
                 val path = Path().apply {
@@ -142,48 +160,48 @@ fun BezierGraphEditor(
                 drawPath(
                     path = path,
                     color = IosCyan,
-                    style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // 1-Tap Easing Preset Buttons
         Text(
             text = "EASING PRESETS",
             color = IosLabelSecondary,
-            fontSize = 10.sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.SemiBold,
             fontFamily = FontFamily.Monospace
         )
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             for (preset in EasingType.values()) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(Color(0x331C1C1E))
-                        .border(0.5.dp, Color(0x26FFFFFF), RoundedCornerShape(10.dp))
+                        .border(0.5.dp, Color(0x26FFFFFF), RoundedCornerShape(8.dp))
                         .clickable {
                             p1 = Offset(preset.curve.x1, preset.curve.y1)
                             p2 = Offset(preset.curve.x2, preset.curve.y2)
                             onCurveChanged(preset.curve)
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
-                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = preset.title,
-                        color = IosLabelPrimary,
-                        fontSize = 11.sp,
+                        text = preset.title + if (preset.isHold) " ⏸" else "",
+                        color = if (preset.isHold) IosCyan else IosLabelPrimary,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }

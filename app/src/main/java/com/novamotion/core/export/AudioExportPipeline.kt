@@ -50,6 +50,10 @@ object AudioExportPipeline {
             ?: project.layers.find { it.type == LayerType.VIDEO && !it.mediaUri.isNullOrBlank() }
     }
 
+    fun getAllAudioLayers(project: Project): List<Layer> {
+        return project.layers.filter { (it.type == LayerType.AUDIO || it.type == LayerType.VIDEO) && !it.mediaUri.isNullOrBlank() && it.durationMs > 0 }
+    }
+
     /**
      * Merges the temporary video-only MP4 file with the project's audio track into [outputFile].
      * If no audio is present, copies or renames [tempVideoFile] directly to [outputFile].
@@ -60,8 +64,8 @@ object AudioExportPipeline {
         tempVideoFile: File,
         outputFile: File
     ): Result<File> = withContext(Dispatchers.IO) {
-        val audioLayer = getPrimaryAudioLayer(project)
-        if (audioLayer == null || audioLayer.mediaUri.isNullOrBlank()) {
+        val audioLayers = getAllAudioLayers(project)
+        if (audioLayers.isEmpty()) {
             // No audio in project — move temp video to destination
             return@withContext if (tempVideoFile.renameTo(outputFile)) {
                 Result.success(outputFile)
@@ -71,6 +75,12 @@ object AudioExportPipeline {
                 Result.success(outputFile)
             }
         }
+        // Use first audio layer for now; multi-audio mixing (PCM sum) is Phase 3.
+        // Log warning if more than one to surface truncation.
+        if (audioLayers.size > 1) {
+            Log.w(TAG, "Multi-audio export: ${audioLayers.size} audio layers found, mixing only first (${audioLayers.first().name}). Full PCM mixing planned.")
+        }
+        val audioLayer = audioLayers.first()
 
         var videoExtractor: MediaExtractor? = null
         var audioExtractor: MediaExtractor? = null

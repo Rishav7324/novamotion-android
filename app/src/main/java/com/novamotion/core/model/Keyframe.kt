@@ -11,12 +11,17 @@ data class BezierControlPoints(
     val y2: Float = 1.0f
 )
 
-/**
+enum class InterpolationType { HOLD, LINEAR, BEZIER, AUTO_BEZIER }
+enum class HandleType { FREE, ALIGNED, VECTOR }
+
+ /**
  * Keyframe for animatable numeric properties (position, scale, rotation, opacity, etc.).
  */
 data class Keyframe<T>(
     val id: String = java.util.UUID.randomUUID().toString(),
     val timeMs: Long,
     val value: T,
-    val curve: BezierControlPoints = BezierControlPoints()
+    val curve: BezierControlPoints = BezierControlPoints(),
+    val interpolation: InterpolationType = InterpolationType.BEZIER,
+    val handleType: HandleType = HandleType.FREE
 )

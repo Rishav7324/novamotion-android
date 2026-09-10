@@ -17,23 +17,22 @@
 -keep class com.novamotion.core.render.** { *; }
 
 # ─── Keep Compose-related classes ────────────────────────────────────────────
--keep class androidx.compose.** { *; }
+# Scoped: Compose embeds its own consumer rules; blanket keep defeats R8.
+# Keep only Compose runtime referenced via reflection if needed.
 -dontwarn androidx.compose.**
 
 # ─── Keep Media3 / ExoPlayer ─────────────────────────────────────────────────
--keep class androidx.media3.** { *; }
+# Media3 ships consumerProguardFiles; blanket keep is redundant.
 -dontwarn androidx.media3.**
 
 # ─── Keep Kotlin coroutines ──────────────────────────────────────────────────
--keepclassmembernames class kotlinx.** {
-    volatile <fields>;
-}
+# Coroutines ship embedded rules; no blanket keep needed.
 
 # ─── Keep Kotlinx serialization (if added later) ────────────────────────────
 -keep @kotlinx.serialization.Serializable class * { *; }
 
 # ─── Keep ViewModel and SavedStateHandle ─────────────────────────────────────
--keep class androidx.lifecycle.** { *; }
+# AAPT2 + lifecycle consumer rules handle ViewModel keep automatically; keep only ctor.
 -keepclassmembers class * extends androidx.lifecycle.ViewModel {
     <init>(androidx.lifecycle.SavedStateHandle);
     <init>();

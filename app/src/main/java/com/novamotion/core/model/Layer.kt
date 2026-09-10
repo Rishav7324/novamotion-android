@@ -24,6 +24,10 @@ data class Layer(
     // Content-specific properties
     val textContent: String = "NovaMotion",
     val textColor: Long = 0xFFFFFFFF,
+    val kineticPreset: String = "SPRING_POP", // KineticTextPreset name
+    val fontSize: Float = 64f,
+    val letterSpacing: Float = 0.05f,
+    val shadowRadius: Float = 8f,
     val shapeType: String = "RECTANGLE", // RECTANGLE, CIRCLE, STAR
     val fillColor: Long = 0xFF6366F1,
     val mediaUri: String? = null,

@@ -164,8 +164,25 @@ class SceneRenderer(private val context: Context) {
         val uri = layer.mediaUri ?: return
         val manager = videoManagers[uri] ?: return
 
+        // Sync ExoPlayer seek to timeline playhead (frame-accurate scrub)
+        // local time within layer = playhead - layer.start, mapped to sourceInMs
+        val localMs = playheadMs - layer.startTimeMs
+        val sourceMs = (layer.sourceInMs + localMs).coerceAtLeast(0L)
+        // Only seek when delta > 80ms to avoid excessive seeks during smooth playback;
+        // scrub jumps will trigger immediate seek.
+        val needsSeek = kotlin.math.abs(manager.lastSeekMs - sourceMs) > 80L
+        if (needsSeek) {
+            manager.seekTo(sourceMs)
+        }
+        // Don't render black frame before player ready — show fallback color instead
+        if (!manager.isPlayerReady) {
+            // Player buffering; skip OES draw this frame to avoid black flash
+            // Could draw placeholder; for now just return and let next frame retry
+            return
+        }
+
         // Update OES texture with latest decoded video frame
-        manager.updateTexImage()
+        if (!manager.updateTexImage()) return
         manager.getTransformMatrix(texMatrix)
 
         val oesTexId = manager.oesTextureId

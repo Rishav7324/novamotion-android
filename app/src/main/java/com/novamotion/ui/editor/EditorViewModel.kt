@@ -94,28 +94,68 @@ class EditorViewModel(
     private val _exportResultPath = MutableStateFlow<String?>(null)
     val exportResultPath: StateFlow<String?> = _exportResultPath.asStateFlow()
 
+    // ─── Timeline customization state ────────────────────────────────────────
+
+    private val _pxPerMs = MutableStateFlow(0.1f) // 100px/sec default, range 0.02-0.3
+    val pxPerMs: StateFlow<Float> = _pxPerMs.asStateFlow()
+
+    private val _snapEnabled = MutableStateFlow(true)
+    val snapEnabled: StateFlow<Boolean> = _snapEnabled.asStateFlow()
+
+    private val _showWaveforms = MutableStateFlow(true)
+    val showWaveforms: StateFlow<Boolean> = _showWaveforms.asStateFlow()
+
+    private val _showThumbnails = MutableStateFlow(false)
+    val showThumbnails: StateFlow<Boolean> = _showThumbnails.asStateFlow()
+
+    private val _timelineTool = MutableStateFlow(TimelineTool.SELECT)
+    val timelineTool: StateFlow<TimelineTool> = _timelineTool.asStateFlow()
+
+    fun setPxPerMs(v: Float) { _pxPerMs.value = v.coerceIn(0.02f, 0.3f) }
+    fun zoomBy(factor: Float, anchorMs: Long? = null) {
+        val newZoom = (_pxPerMs.value * factor).coerceIn(0.02f, 0.3f)
+        _pxPerMs.value = newZoom
+    }
+    fun toggleSnap() { _snapEnabled.update { !it } }
+    fun setShowWaveforms(v: Boolean) { _showWaveforms.value = v }
+    fun setShowThumbnails(v: Boolean) { _showThumbnails.value = v }
+    fun setTimelineTool(tool: TimelineTool) { _timelineTool.value = tool }
+
+    enum class TimelineTool { SELECT, RIPPLE, ROLL, SLIP, SLIDE }
+
     // ─── Choreographer clock ─────────────────────────────────────────────────
 
     /** Last nanoTime when a frame callback fired during playback. */
     private var lastFrameNanos = 0L
+    /** Sub-ms accumulator to avoid truncation jitter at 120Hz */
+    private var elapsedAccumMs = 0f
 
     private val choreographer: Choreographer by lazy { Choreographer.getInstance() }
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (!_isPlaying.value) return
-
             val proj = _project.value ?: return
-
             if (lastFrameNanos != 0L) {
-                // Compute actual elapsed time between display frames
-                val elapsedMs = (frameTimeNanos - lastFrameNanos) / 1_000_000L
-                val newPlayheadMs = (_playheadMs.value + elapsedMs) % proj.durationMs
-                _playheadMs.value = newPlayheadMs
+                val nowNanos = System.nanoTime()
+                val lagMs = (nowNanos - frameTimeNanos) / 1_000_000L
+                // Drop late frame if >90% of refresh period (prevents queue stuffing)
+                val refreshMs = 16L // approx 60Hz; adaptive via Display refresh if needed
+                if (lagMs > (refreshMs * 0.9f).toLong()) {
+                    lastFrameNanos = frameTimeNanos
+                    choreographer.postFrameCallback(this)
+                    return
+                }
+                val elapsedFloat = (frameTimeNanos - lastFrameNanos) / 1_000_000f
+                elapsedAccumMs += elapsedFloat
+                val elapsedWhole = elapsedAccumMs.toLong()
+                if (elapsedWhole > 0) {
+                    elapsedAccumMs -= elapsedWhole
+                    val newPlayheadMs = (_playheadMs.value + elapsedWhole) % proj.durationMs.coerceAtLeast(1L)
+                    _playheadMs.value = newPlayheadMs
+                }
             }
             lastFrameNanos = frameTimeNanos
-
-            // Schedule next frame
             choreographer.postFrameCallback(this)
         }
     }
@@ -231,6 +271,7 @@ class EditorViewModel(
     fun play() {
         if (_isPlaying.value) return
         lastFrameNanos = 0L
+        elapsedAccumMs = 0f
         _isPlaying.value = true
         choreographer.postFrameCallback(frameCallback)
     }
@@ -239,6 +280,7 @@ class EditorViewModel(
         _isPlaying.value = false
         choreographer.removeFrameCallback(frameCallback)
         lastFrameNanos = 0L
+        elapsedAccumMs = 0f
     }
 
     fun togglePlayback() {
@@ -252,10 +294,16 @@ class EditorViewModel(
 
     fun stepFrame(forward: Boolean = true) {
         val proj = _project.value ?: return
-        val frameDurationMs = 1000L / proj.fps
+        val frameDurationMs = (1000f / proj.fps.coerceAtLeast(1)).toLong().coerceAtLeast(1L)
         val current = _playheadMs.value
         val stepped = if (forward) current + frameDurationMs else current - frameDurationMs
         _playheadMs.value = stepped.coerceIn(0L, proj.durationMs)
+    }
+
+    /** Frame-snapped time for magnetic guides */
+    fun snapTimeToFrame(timeMs: Long, fps: Int = project.value?.fps ?: 60): Long {
+        val frameMs = 1000f / fps.coerceAtLeast(1)
+        return (kotlin.math.round(timeMs / frameMs) * frameMs).toLong()
     }
 
     // ─── Selection ───────────────────────────────────────────────────────────

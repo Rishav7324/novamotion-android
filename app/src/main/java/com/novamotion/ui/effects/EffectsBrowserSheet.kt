@@ -56,11 +56,11 @@ fun EffectsBrowserSheet(
             Text(
                 text = "VFX Effects Library (150+ Shaders)",
                 color = TextPrimary,
-                fontSize = 17.sp,
-                style = MaterialTheme.typography.titleMedium
+                fontSize = 14.sp,
+                style = MaterialTheme.typography.titleSmall
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Search Bar
             OutlinedTextField(
@@ -94,15 +94,15 @@ fun EffectsBrowserSheet(
                         modifier = Modifier
                             .background(
                                 if (isSelected) ElectricIndigo else StudioSurfaceVariant,
-                                RoundedCornerShape(8.dp)
+                                RoundedCornerShape(6.dp)
                             )
                             .clickable { selectedCategory = cat }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
                             text = cat,
                             color = if (isSelected) TextPrimary else TextSecondary,
-                            fontSize = 12.sp
+                            fontSize = 10.sp
                         )
                     }
                 }
@@ -132,25 +132,25 @@ private fun EffectItemRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .background(StudioSurfaceVariant, RoundedCornerShape(10.dp))
-            .border(1.dp, StudioBorder, RoundedCornerShape(10.dp))
+            .background(StudioSurfaceVariant, RoundedCornerShape(8.dp))
+            .border(0.75.dp, StudioBorder, RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .padding(12.dp)
+            .padding(8.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(38.dp)
-                .background(ElectricIndigo.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                .size(30.dp)
+                .background(ElectricIndigo.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
         ) {
-            Icon(Icons.Default.AutoFixHigh, contentDescription = null, tint = ElectricIndigo, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.AutoFixHigh, contentDescription = null, tint = ElectricIndigo, modifier = Modifier.size(16.dp))
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = definition.type.displayName, color = TextPrimary, fontSize = 14.sp)
-            Text(text = definition.description, color = TextMuted, fontSize = 11.sp, maxLines = 1)
+            Text(text = definition.type.displayName, color = TextPrimary, fontSize = 12.sp)
+            Text(text = definition.description, color = TextMuted, fontSize = 10.sp, maxLines = 1)
         }
     }
 }

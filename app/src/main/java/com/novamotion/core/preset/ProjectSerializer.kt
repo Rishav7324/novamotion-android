@@ -37,6 +37,10 @@ object ProjectSerializer {
             layerJson.put("mediaUri", layer.mediaUri ?: "")
             layerJson.put("textContent", layer.textContent)
             layerJson.put("textColor", layer.textColor.toString())
+            layerJson.put("kineticPreset", layer.kineticPreset)
+            layerJson.put("fontSize", layer.fontSize.toDouble())
+            layerJson.put("letterSpacing", layer.letterSpacing.toDouble())
+            layerJson.put("shadowRadius", layer.shadowRadius.toDouble())
             layerJson.put("shapeType", layer.shapeType)
             layerJson.put("fillColor", layer.fillColor.toString())
 
@@ -130,6 +134,10 @@ object ProjectSerializer {
                 val mediaUri = layerJson.optString("mediaUri").takeIf { it.isNotEmpty() }
                 val textContent = layerJson.optString("textContent", "NovaMotion")
                 val textColor = layerJson.optString("textColor", "0xFFFFFFFF").toLongOrNull() ?: 0xFFFFFFFF
+                val kineticPreset = layerJson.optString("kineticPreset", "SPRING_POP")
+                val fontSize = layerJson.optDouble("fontSize", 64.0).toFloat()
+                val letterSpacing = layerJson.optDouble("letterSpacing", 0.05).toFloat()
+                val shadowRadius = layerJson.optDouble("shadowRadius", 8.0).toFloat()
                 val shapeType = layerJson.optString("shapeType", "RECTANGLE")
                 val fillColor = layerJson.optString("fillColor", "0xFF6366F1").toLongOrNull() ?: 0xFF6366F1
 
@@ -148,6 +156,10 @@ object ProjectSerializer {
                     mediaUri = mediaUri,
                     textContent = textContent,
                     textColor = textColor,
+                    kineticPreset = kineticPreset,
+                    fontSize = fontSize,
+                    letterSpacing = letterSpacing,
+                    shadowRadius = shadowRadius,
                     shapeType = shapeType,
                     fillColor = fillColor,
                     transform = transform,

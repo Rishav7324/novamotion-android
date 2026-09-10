@@ -17,7 +17,16 @@ data class TextureResult(
 
 object TextTextureGenerator {
 
-    private val textureCache = mutableMapOf<String, TextureResult>()
+    private const val MAX_CACHE_SIZE = 48
+    private val textureCache = object : LinkedHashMap<String, TextureResult>(48, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TextureResult>?): Boolean {
+            if (size > MAX_CACHE_SIZE) {
+                eldest?.value?.let { try { GLES30.glDeleteTextures(1, intArrayOf(it.textureId), 0) } catch (_: Exception) {} }
+                return true
+            }
+            return false
+        }
+    }
 
     /**
      * Renders a text string with styling into an OpenGL ES 2D texture.
@@ -76,14 +85,16 @@ object TextTextureGenerator {
         bitmap.recycle()
 
         val result = TextureResult(texId, bitmapWidth, bitmapHeight)
-        textureCache[cacheKey] = result
+        synchronized(textureCache) { textureCache[cacheKey] = result }
         return result
     }
 
     fun clearCache() {
-        for (tex in textureCache.values) {
-            GLES30.glDeleteTextures(1, intArrayOf(tex.textureId), 0)
+        synchronized(textureCache) {
+            for (tex in textureCache.values) {
+                try { GLES30.glDeleteTextures(1, intArrayOf(tex.textureId), 0) } catch (_: Exception) {}
+            }
+            textureCache.clear()
         }
-        textureCache.clear()
     }
 }

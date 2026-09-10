@@ -28,9 +28,13 @@ fun AnimatableProperty<Float>.evaluate(timeMs: Long): Float {
         val k1 = sorted[i]
         val k2 = sorted[i + 1]
         if (timeMs in k1.timeMs..k2.timeMs) {
+            if (k1.interpolation == InterpolationType.HOLD) return k1.value
             val span = (k2.timeMs - k1.timeMs).toFloat()
             val progress = if (span > 0) (timeMs - k1.timeMs) / span else 0f
-            val easedProgress = BezierCurve.evaluate(progress, k1.curve)
+            val easedProgress = when (k1.interpolation) {
+                InterpolationType.LINEAR -> progress
+                else -> BezierCurve.evaluate(progress, k1.curve)
+            }
             return k1.value + (k2.value - k1.value) * easedProgress
         }
     }

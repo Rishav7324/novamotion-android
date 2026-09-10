@@ -78,59 +78,8 @@ fun StudioWorkspace(
 
     // ─── Load initial project into ViewModel once ───────────────────────────
     LaunchedEffect(initialProject?.id) {
-        val proj = initialProject ?: ProjectManager.createProject(title = "Cyberpunk Motion Intro")
+        val proj = initialProject ?: ProjectManager.createProject(title = "Untitled Project")
         viewModel.loadProject(proj)
-
-        // Seed sample layers if empty
-        if (proj.layers.isEmpty()) {
-            val sampleLayers = listOf(
-                Layer(
-                    name = "NovaMotion Title",
-                    type = LayerType.TEXT,
-                    startTimeMs = 0L,
-                    durationMs = 6000L,
-                    textContent = "NOVAMOTION PRO",
-                    textColor = 0xFFFFFFFF,
-                    transform = LayerTransform(
-                        posX = AnimatableProperty(
-                            defaultValue = 0f,
-                            keyframes = listOf(
-                                Keyframe(timeMs = 0L, value = -300f),
-                                Keyframe(timeMs = 1500L, value = 0f)
-                            )
-                        ),
-                        scaleX = AnimatableProperty(1.2f),
-                        scaleY = AnimatableProperty(1.2f)
-                    )
-                ),
-                Layer(
-                    name = "Neon Cyber Star",
-                    type = LayerType.SHAPE,
-                    startTimeMs = 500L,
-                    durationMs = 5500L,
-                    shapeType = "STAR",
-                    fillColor = 0xFF6366F1,
-                    transform = LayerTransform(
-                        posY = AnimatableProperty(
-                            defaultValue = 150f,
-                            keyframes = listOf(
-                                Keyframe(timeMs = 500L, value = 300f),
-                                Keyframe(timeMs = 2000L, value = 150f)
-                            )
-                        ),
-                        rotation = AnimatableProperty(
-                            defaultValue = 0f,
-                            keyframes = listOf(
-                                Keyframe(timeMs = 500L, value = 0f),
-                                Keyframe(timeMs = 5000L, value = 360f)
-                            )
-                        )
-                    )
-                )
-            )
-            val seeded = proj.copy(layers = sampleLayers)
-            viewModel.updateProject(seeded, recordHistory = false)
-        }
     }
 
     // ─── Collect state from ViewModel ───────────────────────────────────────
@@ -146,6 +95,9 @@ fun StudioWorkspace(
     val isExporting by viewModel.isExporting.collectAsState()
     val exportProgress by viewModel.exportProgress.collectAsState()
     val exportResultPath by viewModel.exportResultPath.collectAsState()
+    val pxPerMs by viewModel.pxPerMs.collectAsState()
+    val snapEnabled by viewModel.snapEnabled.collectAsState()
+    val showWaveforms by viewModel.showWaveforms.collectAsState()
 
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showXmlPresetDialog by remember { mutableStateOf(false) }
@@ -195,30 +147,30 @@ fun StudioWorkspace(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 GlassmorphicCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(26.dp),
+                        .height(42.dp),
+                    shape = RoundedCornerShape(21.dp),
                     backgroundColor = IosGlassSurface,
                     borderBrush = IosGlassBorder,
-                    elevation = 6.dp
+                    elevation = 4.dp
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 12.dp)
+                            .padding(horizontal = 8.dp)
                     ) {
                         // Back to Home Button
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(28.dp)
                                     .clip(CircleShape)
                                     .background(Color(0x33000000))
                                     .border(0.5.dp, Color(0x26FFFFFF), CircleShape)
@@ -228,25 +180,25 @@ fun StudioWorkspace(
                                     imageVector = Icons.Default.ArrowBack,
                                     contentDescription = "Home",
                                     tint = IosLabelPrimary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
 
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
 
                             // Project Title & Specs
                             Column {
                                 Text(
                                     text = currentProject.title,
                                     color = IosLabelPrimary,
-                                    fontSize = 13.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1
                                 )
                                 Text(
                                     text = "${currentProject.width}×${currentProject.height} • ${currentProject.fps} FPS",
                                     color = IosLabelSecondary,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
                             }
@@ -255,57 +207,57 @@ fun StudioWorkspace(
                         // Actions: Undo, Redo, Add Layer, Export Pill
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             // Undo
                             IconButton(
                                 onClick = { viewModel.undo() },
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(26.dp)
                             ) {
                                 Icon(
                                     Icons.Default.Undo,
                                     contentDescription = "Undo",
                                     tint = if (ProjectManager.canUndo()) IosLabelPrimary else IosLabelTertiary,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(13.dp)
                                 )
                             }
 
                             // Redo
                             IconButton(
                                 onClick = { viewModel.redo() },
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(26.dp)
                             ) {
                                 Icon(
                                     Icons.Default.Redo,
                                     contentDescription = "Redo",
                                     tint = if (ProjectManager.canRedo()) IosLabelPrimary else IosLabelTertiary,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(13.dp)
                                 )
                             }
 
                             // Add Layer
                             IconButton(
                                 onClick = { viewModel.toggleAddLayerSheet(true) },
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(26.dp)
                             ) {
                                 Icon(
                                     Icons.Default.AddCircleOutline,
                                     contentDescription = "Add Layer",
                                     tint = IosCyan,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
 
                             // XML Presets (Alight Motion 2-Way Import & Export)
                             IconButton(
                                 onClick = { showXmlPresetDialog = true },
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(26.dp)
                             ) {
                                 Icon(
                                     Icons.Default.Code,
                                     contentDescription = "XML Presets",
                                     tint = IosMint,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
 
@@ -313,28 +265,28 @@ fun StudioWorkspace(
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(
                                         Brush.linearGradient(
                                             listOf(IosPurple, IosIndigo)
                                         )
                                     )
-                                    .border(0.75.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(16.dp))
+                                    .border(0.75.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(12.dp))
                                     .iosSpringClick { viewModel.toggleExportDialog(true) }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = Icons.Default.FileDownload,
                                         contentDescription = "Export",
                                         tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(11.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
                                     Text(
                                         text = "Export",
                                         color = Color.White,
-                                        fontSize = 11.sp,
+                                        fontSize = 10.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -351,7 +303,7 @@ fun StudioWorkspace(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // ── ZONE 1: Seamless OLED Canvas Viewport (~44%) ─────────────────
+            // ── ZONE 1: Seamless OLED Canvas Viewport (~48%) ─────────────────
             CanvasViewport(
                 project = currentProject,
                 currentPlayheadMs = currentPlayheadMs,
@@ -399,10 +351,10 @@ fun StudioWorkspace(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.44f)
+                    .weight(0.48f)
             )
 
-            // ── ZONE 2: Floating Dynamic Glass Island Dock (54dp) ─────────────
+            // ── ZONE 2: Floating Dynamic Glass Island Dock (42dp) ─────────────
             QuickActionDock(
                 currentPlayheadMs = currentPlayheadMs,
                 isPlaying = isPlaying,
@@ -437,11 +389,11 @@ fun StudioWorkspace(
                 onOpenEffects = { viewModel.toggleEffectsSheet(true) }
             )
 
-            // ── ZONE 3: Cupertino Modular Lower Deck (~56%) ───────────────────
+            // ── ZONE 3: Cupertino Modular Lower Deck (~52%) ───────────────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.56f)
+                    .weight(0.52f)
                     .background(IosSecondaryBackground)
             ) {
                 // Cupertino Sliding Segmented Control Bar
@@ -455,48 +407,94 @@ fun StudioWorkspace(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 )
 
-                // Animated Modular Content Deck
+                // Animated Modular Content Deck — spring slide + fade (M3 Expressive)
                 AnimatedContent(
                     targetState = selectedDeckTab,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    transitionSpec = {
+                        (fadeIn(animationSpec = androidx.compose.animation.core.tween(150)) + androidx.compose.animation.slideInVertically(
+                            animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 400f),
+                            initialOffsetY = { it / 6 }
+                        )) togetherWith (fadeOut(animationSpec = androidx.compose.animation.core.tween(120)) + androidx.compose.animation.slideOutVertically(
+                            animationSpec = androidx.compose.animation.core.tween(120),
+                            targetOffsetY = { -it / 8 }
+                        ))
+                    },
                     label = "modularDeckSwap",
                     modifier = Modifier.fillMaxSize()
                 ) { targetTab ->
                     when (targetTab) {
                         0 -> {
-                            // Full-height Magnetic Timeline View
-                            MagneticTimeline(
-                                project = currentProject,
-                                currentPlayheadMs = currentPlayheadMs,
-                                selectedLayerId = selectedLayerId,
-                                onSeek = { ms ->
-                                    viewModel.seekTo(ms)
-                                    audioEngine.seekTo(ms)
-                                },
-                                onSelectLayer = { id ->
-                                    viewModel.selectLayer(id)
-                                },
-                                onLayerMoved = { layerId, newStartMs ->
-                                    val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
-                                    val updatedLayer = layer.copy(startTimeMs = newStartMs)
-                                    val updatedProj = currentProject.copy(
-                                        layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
-                                    )
-                                    viewModel.updateProject(updatedProj)
-                                },
-                                onLayerTrimmed = { layerId, newDurationMs ->
-                                    val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
-                                    val updatedLayer = layer.copy(durationMs = newDurationMs)
-                                    val updatedProj = currentProject.copy(
-                                        layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
-                                    )
-                                    viewModel.updateProject(updatedProj)
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                // Timeline mini-toolbar: zoom + snap + waveform toggles
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0x14141416))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    IconButton(onClick = { viewModel.zoomBy(0.85f) }, modifier = Modifier.size(22.dp)) {
+                                        Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out", tint = IosLabelSecondary, modifier = Modifier.size(12.dp))
+                                    }
+                                    IconButton(onClick = { viewModel.zoomBy(1.18f) }, modifier = Modifier.size(22.dp)) {
+                                        Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In", tint = IosLabelSecondary, modifier = Modifier.size(12.dp))
+                                    }
+                                    Box(modifier = Modifier.width(1.dp).height(14.dp).background(Color(0x33FFFFFF)))
+                                    IconButton(onClick = { viewModel.toggleSnap() }, modifier = Modifier.size(22.dp)) {
+                                        Icon(Icons.Default.AutoFixHigh, contentDescription = "Snap", tint = if (snapEnabled) IosCyan else IosLabelTertiary, modifier = Modifier.size(12.dp))
+                                    }
+                                    IconButton(onClick = { viewModel.setShowWaveforms(!showWaveforms) }, modifier = Modifier.size(22.dp)) {
+                                        Icon(Icons.Default.GraphicEq, contentDescription = "Waveforms", tint = if (showWaveforms) IosCyan else IosLabelTertiary, modifier = Modifier.size(12.dp))
+                                    }
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    Text(text = "${(pxPerMs*1000).toInt()} px/s", color = IosLabelTertiary, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                }
+                                MagneticTimeline(
+                                    project = currentProject,
+                                    currentPlayheadMs = currentPlayheadMs,
+                                    selectedLayerId = selectedLayerId,
+                                    onSeek = { ms ->
+                                        viewModel.seekTo(ms)
+                                        audioEngine.seekTo(ms)
+                                    },
+                                    onSelectLayer = { id ->
+                                        viewModel.selectLayer(id)
+                                    },
+                                    onLayerMoved = { layerId, newStartMs ->
+                                        val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
+                                        val updatedLayer = layer.copy(startTimeMs = newStartMs)
+                                        val updatedProj = currentProject.copy(
+                                            layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
+                                        )
+                                        viewModel.updateProject(updatedProj)
+                                    },
+                                    onLayerTrimmed = { layerId, newDurationMs ->
+                                        val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
+                                        val updatedLayer = layer.copy(durationMs = newDurationMs)
+                                        val updatedProj = currentProject.copy(
+                                            layers = currentProject.layers.map { if (it.id == layerId) updatedLayer else it }
+                                        )
+                                        viewModel.updateProject(updatedProj)
+                                    },
+                                    onLayerTrimHead = { layerId, newStartMs, newDurationMs ->
+                                        val layer = currentProject.layers.find { it.id == layerId } ?: return@MagneticTimeline
+                                        val trimmed = com.novamotion.core.timeline.TimelineOperations.trimLayerHead(layer, newStartMs)
+                                        val updatedProj = currentProject.copy(
+                                            layers = currentProject.layers.map { if (it.id == layerId) trimmed else it }
+                                        )
+                                        viewModel.updateProject(updatedProj)
+                                    },
+                                    pxPerMs = pxPerMs,
+                                    snapEnabled = snapEnabled,
+                                    showWaveforms = showWaveforms,
+                                    onZoomChange = { viewModel.setPxPerMs(it) },
+                                    modifier = Modifier.weight(1f).fillMaxWidth()
+                                )
+                            }
                         }
                         1 -> {
                             // Full-height Contextual Layer Inspector
@@ -682,6 +680,17 @@ fun StudioWorkspace(
                     viewModel.setExportProgress(0f)
                     viewModel.setExportResult(null)
                     scope.launch {
+                        // Start foreground service to prevent kill during long encode
+                        try { com.novamotion.core.export.ExportForegroundService.start(context) } catch (_: Exception) {}
+                        // Request notification permission on Android 13+ (best-effort)
+                        if (android.os.Build.VERSION.SDK_INT >= 33) {
+                            try {
+                                val perm = android.Manifest.permission.POST_NOTIFICATIONS
+                                if (androidx.core.content.ContextCompat.checkSelfPermission(context, perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    // Cannot request from composable without Activity; service will run without notification update
+                                }
+                            } catch (_: Exception) {}
+                        }
                         val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
                             ?: context.filesDir
                         val targetFile = File(moviesDir, "NovaMotion_${System.currentTimeMillis()}.mp4")
@@ -698,6 +707,7 @@ fun StudioWorkspace(
                             config = cfg,
                             onProgress = { p -> viewModel.setExportProgress(p) }
                         )
+                        try { com.novamotion.core.export.ExportForegroundService.stop(context) } catch (_: Exception) {}
                         viewModel.setExporting(false)
                         if (res.isSuccess) {
                             val displayName = "NovaMotion_${System.currentTimeMillis()}.mp4"
@@ -707,6 +717,8 @@ fun StudioWorkspace(
                                 displayName = displayName
                             )
                             viewModel.setExportResult(galleryUri?.toString() ?: targetFile.absolutePath)
+                        } else {
+                            viewModel.setExportResult(null)
                         }
                     }
                 }

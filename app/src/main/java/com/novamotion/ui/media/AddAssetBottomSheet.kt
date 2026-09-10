@@ -29,7 +29,7 @@ fun AddAssetBottomSheet(
     onMediaSelected: (Uri, LayerType) -> Unit
 ) {
     val videoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
             onMediaSelected(uri, LayerType.VIDEO)
@@ -37,7 +37,7 @@ fun AddAssetBottomSheet(
     }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
             onMediaSelected(uri, LayerType.IMAGE)
@@ -45,7 +45,7 @@ fun AddAssetBottomSheet(
     }
 
     val audioPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
             onMediaSelected(uri, LayerType.AUDIO)
@@ -60,18 +60,18 @@ fun AddAssetBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp)
         ) {
             Text(
                 text = "Add Layer to Timeline",
                 color = TextPrimary,
-                fontSize = 16.sp,
-                style = MaterialTheme.typography.titleMedium
+                fontSize = 14.sp,
+                style = MaterialTheme.typography.titleSmall
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 AssetOptionRow(
                     icon = Icons.Default.VideoLibrary,
                     title = "Device Video",
@@ -136,26 +136,26 @@ private fun AssetOptionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .background(StudioSurfaceVariant, RoundedCornerShape(10.dp))
-            .border(1.dp, StudioBorder, RoundedCornerShape(10.dp))
-            .padding(12.dp)
+            .background(StudioSurfaceVariant, RoundedCornerShape(8.dp))
+            .border(0.75.dp, StudioBorder, RoundedCornerShape(8.dp))
+            .padding(8.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(40.dp)
-                .background(iconColor.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                .size(32.dp)
+                .background(iconColor.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
         ) {
-            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
+            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = TextPrimary, fontSize = 13.sp, style = MaterialTheme.typography.titleSmall)
-            Text(text = subtitle, color = TextMuted, fontSize = 11.sp)
+            Text(text = title, color = TextPrimary, fontSize = 12.sp, style = MaterialTheme.typography.titleSmall)
+            Text(text = subtitle, color = TextMuted, fontSize = 10.sp)
         }
 
-        Icon(Icons.Default.Add, contentDescription = null, tint = TextMuted, modifier = Modifier.size(18.dp))
+        Icon(Icons.Default.Add, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
     }
 }

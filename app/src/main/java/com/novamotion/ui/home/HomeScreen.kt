@@ -70,15 +70,6 @@ fun HomeScreen(
                 if (proj != null) recentProjects.add(proj)
             }
         }
-        if (recentProjects.isEmpty()) {
-            recentProjects.addAll(
-                listOf(
-                    ProjectManager.createProject("Cyberpunk Motion Intro", AspectRatioPreset.REELS_9_16),
-                    ProjectManager.createProject("Velocity Beat Drop", AspectRatioPreset.REELS_9_16),
-                    ProjectManager.createProject("Cinematic YouTube Vlog", AspectRatioPreset.CINEMA_16_9)
-                )
-            )
-        }
         isLoadingProjects = false
     }
 
@@ -89,44 +80,44 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 GlassmorphicCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(27.dp),
+                        .height(42.dp),
+                    shape = RoundedCornerShape(21.dp),
                     backgroundColor = IosGlassSurface,
                     borderBrush = IosGlassBorder,
-                    elevation = 6.dp
+                    elevation = 4.dp
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 14.dp)
+                            .padding(horizontal = 10.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Image(
                                 painter = painterResource(id = R.drawable.app_logo),
                                 contentDescription = "NovaMotion Logo",
                                 modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .size(26.dp)
+                                    .clip(RoundedCornerShape(6.dp))
                             )
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
                                     text = "NovaMotion Studio",
                                     color = IosLabelPrimary,
-                                    fontSize = 15.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
                                     text = "Pro Motion Graphics & VFX",
                                     color = IosCyan,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -134,13 +125,13 @@ fun HomeScreen(
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             // Import XML Preset Button
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(28.dp)
                                     .clip(CircleShape)
                                     .background(Color(0x33000000))
                                     .border(0.5.dp, Color(0x26FFFFFF), CircleShape)
@@ -150,7 +141,7 @@ fun HomeScreen(
                                     imageVector = Icons.Default.Code,
                                     contentDescription = "Import XML Preset",
                                     tint = IosMint,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
 
@@ -158,7 +149,7 @@ fun HomeScreen(
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(28.dp)
                                     .clip(CircleShape)
                                     .background(Color(0x33000000))
                                     .border(0.5.dp, Color(0x26FFFFFF), CircleShape)
@@ -168,7 +159,7 @@ fun HomeScreen(
                                     imageVector = Icons.Default.Settings,
                                     contentDescription = "Settings",
                                     tint = IosLabelSecondary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
                         }
@@ -181,23 +172,23 @@ fun HomeScreen(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(
                         Brush.linearGradient(
                             listOf(IosPurple, IosIndigo)
                         )
                     )
-                    .border(1.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(22.dp))
+                    .border(1.dp, Brush.verticalGradient(listOf(Color.White, Color(0x33FFFFFF))), RoundedCornerShape(16.dp))
                     .iosSpringClick { showCreateDialog = true }
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "New Project",
                         color = Color.White,
-                        fontSize = 13.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -224,7 +215,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
@@ -238,32 +229,32 @@ fun HomeScreen(
                 ).forEach { (preset, ratio, label) ->
                     GlassmorphicCard(
                         modifier = Modifier
-                            .width(115.dp)
+                            .width(100.dp)
                             .iosSpringClick {
                                 selectedPresetForCreate = preset
                                 showCreateDialog = true
                             },
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(12.dp),
                         backgroundColor = IosGlassSurface,
                         borderBrush = IosGlassBorder,
-                        elevation = 4.dp
+                        elevation = 3.dp
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(14.dp)
+                            modifier = Modifier.padding(10.dp)
                         ) {
                             Text(
                                 text = ratio,
                                 color = IosCyan,
-                                fontSize = 16.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
-                            Spacer(modifier = Modifier.height(3.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = label,
                                 color = IosLabelSecondary,
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -426,50 +417,50 @@ private fun ProjectCard(
         borderBrush = IosGlassBorder,
         elevation = 6.dp
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(8.dp)) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(90.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .height(72.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(IosSystemBackground)
-                    .border(0.5.dp, Color(0x1AFFFFFF), RoundedCornerShape(10.dp))
+                    .border(0.5.dp, Color(0x1AFFFFFF), RoundedCornerShape(8.dp))
             ) {
                 Icon(
                     Icons.Default.MovieCreation,
                     contentDescription = null,
                     tint = IosIndigo,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(26.dp)
                 )
                 // Delete button
                 IconButton(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier
-                        .size(26.dp)
+                        .size(22.dp)
                         .align(Alignment.TopEnd)
-                        .padding(2.dp)
+                        .padding(1.dp)
                 ) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Delete",
                         tint = IosLabelTertiary,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(12.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = project.title,
                 color = IosLabelPrimary,
-                fontSize = 13.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1
             )
 
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -478,13 +469,13 @@ private fun ProjectCard(
                 Text(
                     text = "${project.width}×${project.height}",
                     color = IosLabelSecondary,
-                    fontSize = 10.sp,
+                    fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
                     text = "${project.fps} FPS",
                     color = IosCyan,
-                    fontSize = 10.sp,
+                    fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium
                 )
@@ -492,7 +483,7 @@ private fun ProjectCard(
             Text(
                 text = "${project.layers.size} layer${if (project.layers.size != 1) "s" else ""}",
                 color = IosLabelTertiary,
-                fontSize = 10.sp
+                fontSize = 9.sp
             )
         }
     }

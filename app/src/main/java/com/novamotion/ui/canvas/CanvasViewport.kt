@@ -128,24 +128,24 @@ fun CanvasViewport(
 
         // ── 3. Floating iOS Liquid Glass HUD Capsule ─────────────────────
         GlassmorphicCard(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(14.dp),
             backgroundColor = IosGlassSurface,
             borderBrush = IosGlassBorder,
-            elevation = 8.dp,
+            elevation = 6.dp,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
+                .padding(top = 6.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 // Resolution & FPS badge
                 Text(
                     text = "${project.width}×${project.height} • ${project.fps} FPS",
                     color = IosLabelSecondary,
-                    fontSize = 11.sp,
+                    fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium
                 )
@@ -153,20 +153,20 @@ fun CanvasViewport(
                 Box(
                     modifier = Modifier
                         .width(1.dp)
-                        .height(14.dp)
+                        .height(12.dp)
                         .background(Color(0x33FFFFFF))
                 )
 
                 // Grid Guide Toggle
                 IconButton(
                     onClick = { showGridGuides = !showGridGuides },
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(22.dp)
                 ) {
                     Icon(
                         imageVector = if (showGridGuides) Icons.Default.GridOn else Icons.Default.GridOff,
                         contentDescription = "Toggle Grid Guides",
                         tint = if (showGridGuides) IosCyan else IosLabelSecondary,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(12.dp)
                     )
                 }
 
@@ -176,13 +176,13 @@ fun CanvasViewport(
                         // Reset zoom/pan or fit canvas
                         renderer?.let { /* triggered via state */ }
                     },
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(22.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.FitScreen,
                         contentDescription = "Fit to Screen",
                         tint = IosLabelSecondary,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(12.dp)
                     )
                 }
             }
@@ -211,46 +211,46 @@ fun CanvasViewport(
                             translationY = layerY * 0.4f
                             rotationZ = layerRot
                         }
-                        .border(1.25.dp, IosActiveGlowBorder, RoundedCornerShape(8.dp))
+                        .border(1.dp, IosActiveGlowBorder, RoundedCornerShape(6.dp))
                 ) {
                     // Center Pivot Crosshair
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(16.dp).align(Alignment.Center)
+                        modifier = Modifier.size(12.dp).align(Alignment.Center)
                     ) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val c = Offset(size.width / 2, size.height / 2)
-                            drawLine(IosCyan, Offset(c.x - 6.dp.toPx(), c.y), Offset(c.x + 6.dp.toPx(), c.y), strokeWidth = 1.5f)
-                            drawLine(IosCyan, Offset(c.x, c.y - 6.dp.toPx()), Offset(c.x, c.y + 6.dp.toPx()), strokeWidth = 1.5f)
-                            drawCircle(Color.White, radius = 2.dp.toPx(), center = c)
+                            drawLine(IosCyan, Offset(c.x - 4.dp.toPx(), c.y), Offset(c.x + 4.dp.toPx(), c.y), strokeWidth = 1.2f)
+                            drawLine(IosCyan, Offset(c.x, c.y - 4.dp.toPx()), Offset(c.x, c.y + 4.dp.toPx()), strokeWidth = 1.2f)
+                            drawCircle(Color.White, radius = 1.5.dp.toPx(), center = c)
                         }
                     }
 
                     // 4 Circular Glass Scale Pins
-                    Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(1.5.dp, IosIndigo, CircleShape).align(Alignment.TopStart))
-                    Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(1.5.dp, IosIndigo, CircleShape).align(Alignment.TopEnd))
-                    Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(1.5.dp, IosIndigo, CircleShape).align(Alignment.BottomStart))
-                    Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(1.5.dp, IosIndigo, CircleShape).align(Alignment.BottomEnd))
+                    Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color.White).border(1.dp, IosIndigo, CircleShape).align(Alignment.TopStart))
+                    Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color.White).border(1.dp, IosIndigo, CircleShape).align(Alignment.TopEnd))
+                    Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color.White).border(1.dp, IosIndigo, CircleShape).align(Alignment.BottomStart))
+                    Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color.White).border(1.dp, IosIndigo, CircleShape).align(Alignment.BottomEnd))
 
                     // Top Rotation Stalk Handle
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.align(Alignment.TopCenter).offset(y = (-32).dp)
+                        modifier = Modifier.align(Alignment.TopCenter).offset(y = (-24).dp)
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(22.dp)
+                                .size(18.dp)
                                 .clip(CircleShape)
                                 .background(IosIndigo)
                                 .border(1.dp, Color.White, CircleShape)
                         ) {
-                            Text(text = "↻", color = Color.White, fontSize = 11.sp)
+                            Text(text = "↻", color = Color.White, fontSize = 9.sp)
                         }
                         Box(
                             modifier = Modifier
-                                .width(1.5.dp)
-                                .height(10.dp)
+                                .width(1.dp)
+                                .height(8.dp)
                                 .background(IosIndigo)
                         )
                     }

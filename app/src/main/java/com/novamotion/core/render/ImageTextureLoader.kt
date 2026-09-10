@@ -28,20 +28,32 @@ object ImageTextureLoader {
 
     private val TAG = "ImageTextureLoader"
 
-    // Keyed by URI string only — NOT by timeUs (safe, bounded cache)
-    private val imageCache = mutableMapOf<String, TextureResult>()
+    // LRU cache bounded by ~32 entries to prevent OOM on long sessions.
+    // Evicted entries delete their GL textures. Uses LinkedHashMap access-order.
+    private const val MAX_IMAGE_CACHE_SIZE = 32
+    private val imageCache = object : LinkedHashMap<String, TextureResult>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TextureResult>?): Boolean {
+            if (size > MAX_IMAGE_CACHE_SIZE) {
+                eldest?.value?.let { evicted ->
+                    try { GLES30.glDeleteTextures(1, intArrayOf(evicted.textureId), 0) } catch (_: Exception) {}
+                }
+                return true
+            }
+            return false
+        }
+    }
+
+    private const val MAX_TEXTURE_DIMENSION = 2048 // Cap to avoid GPU OOM on 48MP images
 
     /**
      * Load a static image texture from a content/file URI.
      * Use this for LayerType.IMAGE only.
      */
     fun loadImageTexture(context: Context, uriString: String): TextureResult? {
-        imageCache[uriString]?.let { return it }
+        synchronized(imageCache) { imageCache[uriString]?.let { return it } }
 
         val bitmap: Bitmap? = try {
-            val uri = Uri.parse(uriString)
-            val stream: InputStream? = context.contentResolver.openInputStream(uri)
-            stream?.use { BitmapFactory.decodeStream(it) }
+            decodeSampledBitmap(context, uriString, MAX_TEXTURE_DIMENSION, MAX_TEXTURE_DIMENSION)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decode image: $uriString", e)
             null
@@ -52,8 +64,50 @@ object ImageTextureLoader {
         }
 
         val result = uploadBitmapToGpu(bitmap, recycleAfterUpload = true) ?: getOrCreateFallbackTexture()
-        imageCache[uriString] = result
+        synchronized(imageCache) { imageCache[uriString] = result }
         return result
+    }
+
+    /**
+     * Efficient sampled decode — 2-pass: first justBounds to get dimensions,
+     * then calculate power-of-2 inSampleSize capped to MAX_TEXTURE_DIMENSION.
+     * Prevents OOM on 48MP photos (official docs: developer.android.com/topic/performance/graphics/load-bitmap).
+     */
+    private fun decodeSampledBitmap(context: Context, uriString: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+        val uri = Uri.parse(uriString)
+        // Pass 1: bounds only
+        val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        try {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, boundsOptions)
+            }
+        } catch (_: Exception) {}
+        // If bounds failed, fallback to direct decode
+        if (boundsOptions.outWidth <= 0 || boundsOptions.outHeight <= 0) {
+            return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+        }
+        val sampleSize = calculateInSampleSize(boundsOptions, reqWidth, reqHeight)
+        val decodeOptions = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        // Need fresh stream for second decode (inputStream is consumed)
+        return context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, decodeOptions)
+        }
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val (height, width) = options.outHeight to options.outWidth
+        var inSampleSize = 1
+        if (height > reqHeight || width > reqWidth) {
+            val halfH = height / 2
+            val halfW = width / 2
+            while (halfH / inSampleSize >= reqHeight && halfW / inSampleSize >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
     }
 
     private var fallbackTexture: TextureResult? = null
@@ -83,7 +137,7 @@ object ImageTextureLoader {
      */
     fun extractVideoThumbnail(context: Context, uriString: String): TextureResult? {
         val cacheKey = "thumb:$uriString"
-        imageCache[cacheKey]?.let { return it }
+        synchronized(imageCache) { imageCache[cacheKey]?.let { return it } }
 
         val bitmap: Bitmap? = try {
             val uri = Uri.parse(uriString)
@@ -100,7 +154,7 @@ object ImageTextureLoader {
 
         if (bitmap == null) return null
         val result = uploadBitmapToGpu(bitmap, recycleAfterUpload = true) ?: return null
-        imageCache[cacheKey] = result
+        synchronized(imageCache) { imageCache[cacheKey] = result }
         return result
     }
 
@@ -155,10 +209,16 @@ object ImageTextureLoader {
     }
 
     fun clearCache() {
-        val texIds = imageCache.values.map { it.textureId }.toIntArray()
-        if (texIds.isNotEmpty()) {
-            GLES30.glDeleteTextures(texIds.size, texIds, 0)
+        synchronized(imageCache) {
+            val texIds = imageCache.values.map { it.textureId }.toIntArray()
+            if (texIds.isNotEmpty()) {
+                try { GLES30.glDeleteTextures(texIds.size, texIds, 0) } catch (_: Exception) {}
+            }
+            imageCache.clear()
         }
-        imageCache.clear()
+        fallbackTexture?.let { fb ->
+            try { GLES30.glDeleteTextures(1, intArrayOf(fb.textureId), 0) } catch (_: Exception) {}
+            fallbackTexture = null
+        }
     }
 }

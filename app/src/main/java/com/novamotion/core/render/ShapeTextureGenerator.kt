@@ -13,7 +13,16 @@ import kotlin.math.sin
 
 object ShapeTextureGenerator {
 
-    private val shapeCache = mutableMapOf<String, TextureResult>()
+    private const val MAX_SHAPE_CACHE = 32
+    private val shapeCache = object : LinkedHashMap<String, TextureResult>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TextureResult>?): Boolean {
+            if (size > MAX_SHAPE_CACHE) {
+                eldest?.value?.let { try { GLES30.glDeleteTextures(1, intArrayOf(it.textureId), 0) } catch (_: Exception) {} }
+                return true
+            }
+            return false
+        }
+    }
 
     fun getOrCreateShapeTexture(
         shapeType: String,
@@ -93,7 +102,7 @@ object ShapeTextureGenerator {
         bitmap.recycle()
 
         val result = TextureResult(texId, width, height)
-        shapeCache[cacheKey] = result
+        synchronized(shapeCache) { shapeCache[cacheKey] = result }
         return result
     }
 
@@ -173,9 +182,11 @@ object ShapeTextureGenerator {
     }
 
     fun clearCache() {
-        for (tex in shapeCache.values) {
-            GLES30.glDeleteTextures(1, intArrayOf(tex.textureId), 0)
+        synchronized(shapeCache) {
+            for (tex in shapeCache.values) {
+                try { GLES30.glDeleteTextures(1, intArrayOf(tex.textureId), 0) } catch (_: Exception) {}
+            }
+            shapeCache.clear()
         }
-        shapeCache.clear()
     }
 }
