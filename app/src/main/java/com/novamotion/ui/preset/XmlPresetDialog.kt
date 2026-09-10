@@ -110,7 +110,7 @@ fun XmlPresetDialog(
                 CupertinoSegmentedControl(
                     items = listOf("Export Preset", "Import Preset"),
                     selectedIndex = selectedTab,
-                    onItemSelected = {
+                    onSelectIndex = {
                         selectedTab = it
                         errorMessage = null
                     },

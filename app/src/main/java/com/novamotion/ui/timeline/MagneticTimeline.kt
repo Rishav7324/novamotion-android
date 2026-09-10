@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -68,7 +69,7 @@ fun MagneticTimeline(
                     .fillMaxWidth()
                     .height(28.dp)
                     .background(Color(0x66141416))
-                    .border(width = 0.5.dp, brush = IosGlassBorder)
+                    .border(width = 0.5.dp, brush = IosGlassBorder, shape = RectangleShape)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
