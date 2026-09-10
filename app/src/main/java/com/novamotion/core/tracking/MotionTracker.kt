@@ -3,6 +3,7 @@ package com.novamotion.core.tracking
 import com.novamotion.core.model.AnimatableProperty
 import com.novamotion.core.model.Keyframe
 import com.novamotion.core.model.Layer
+import com.novamotion.core.nativedrive.NativeBridge
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -19,7 +20,7 @@ object MotionTracker {
 
     /**
      * Estimates displacement vector between reference frame template and search window.
-     * Uses Normalized Cross-Correlation (NCC) / Sum of Absolute Differences (SAD).
+     * Uses native C++ loop unrolled NEON SIMD if available, with Kotlin fallback.
      */
     fun trackPatch(
         templateLuma: ByteArray,
@@ -31,6 +32,17 @@ object MotionTracker {
         startX: Int,
         startY: Int
     ): Pair<Float, Float> {
+        if (NativeBridge.isLoaded) {
+            val res = NativeBridge.trackPatchNative(
+                templateLuma, templateWidth, templateHeight,
+                searchWindowLuma, searchWidth, searchHeight,
+                startX, startY, 16
+            )
+            if (res.size >= 2) {
+                return Pair(res[0], res[1])
+            }
+        }
+
         var bestSAD = Long.MAX_VALUE
         var bestDx = 0
         var bestDy = 0

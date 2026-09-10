@@ -39,6 +39,12 @@
     <init>();
 }
 
+# ─── Keep Native C++ JNI methods (libnovamotion.so) ─────────────────────────
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+-keep class com.novamotion.core.nativedrive.** { *; }
+
 # ─── Strip debug logging in release ──────────────────────────────────────────
 -assumenosideeffects class android.util.Log {
     public static *** d(...);

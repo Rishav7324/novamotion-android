@@ -1,10 +1,11 @@
 package com.novamotion.core.animation
 
 import com.novamotion.core.model.BezierControlPoints
+import com.novamotion.core.nativedrive.NativeBridge
 import kotlin.math.abs
 
 /**
- * Analytical Cubic Bézier Solver using the Newton-Raphson method.
+ * Analytical Cubic Bézier Solver with native C++ SIMD acceleration (libnovamotion.so).
  * Accurately calculates eased property values and derivatives (velocity).
  */
 object BezierCurve {
@@ -16,10 +17,15 @@ object BezierCurve {
 
     /**
      * Solves the Cubic Bézier curve y given x in range [0, 1].
+     * Uses native C++ Newton-Raphson solver if available.
      */
     fun evaluate(x: Float, curve: BezierControlPoints): Float {
         if (x <= 0f) return 0f
         if (x >= 1f) return 1f
+
+        if (NativeBridge.isLoaded) {
+            return NativeBridge.evaluateBezierNative(x, curve.x1, curve.y1, curve.x2, curve.y2)
+        }
 
         val t = solveCurveX(x, curve.x1, curve.x2)
         return sampleCurveY(t, curve.y1, curve.y2)

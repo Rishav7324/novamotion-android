@@ -37,6 +37,7 @@ object HardwareVideoEncoder {
         var muxer: MediaMuxer? = null
         var eglRenderer: EglSurfaceRenderer? = null
         var sceneRenderer: SceneRenderer? = null
+        var isMuxerStarted = false
 
         try {
             val format = MediaFormat.createVideoFormat(config.mimeType, config.width, config.height).apply {
@@ -64,7 +65,7 @@ object HardwareVideoEncoder {
 
             muxer = MediaMuxer(config.outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
             var videoTrackIndex = -1
-            var isMuxerStarted = false
+            isMuxerStarted = false
 
             val totalFrames = project.totalFrames
             val frameDurationNs = 1_000_000_000L / config.fps
